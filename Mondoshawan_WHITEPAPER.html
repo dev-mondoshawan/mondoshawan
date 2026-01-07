@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mondoshawan Whitepaper - Next-Generation Layer 1 Blockchain</title>
+    <style>
+        @page {
+            size: letter;
+            margin: 0.75in;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Georgia', 'Times New Roman', serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 8.5in;
+            margin: 0 auto;
+            padding: 20px;
+            background: #fff;
+        }
+        
+        h1 {
+            font-size: 2.5em;
+            margin-top: 0.5em;
+            margin-bottom: 0.3em;
+            color: #1a1a1a;
+            page-break-after: avoid;
+            border-bottom: 3px solid #2c3e50;
+            padding-bottom: 0.3em;
+        }
+        
+        h2 {
+            font-size: 1.8em;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            color: #2c3e50;
+            page-break-after: avoid;
+            border-bottom: 2px solid #34495e;
+            padding-bottom: 0.2em;
+        }
+        
+        h3 {
+            font-size: 1.4em;
+            margin-top: 1.2em;
+            margin-bottom: 0.4em;
+            color: #34495e;
+            page-break-after: avoid;
+        }
+        
+        h4 {
+            font-size: 1.2em;
+            margin-top: 1em;
+            margin-bottom: 0.3em;
+            color: #555;
+            page-break-after: avoid;
+        }
+        
+        p {
+            margin-bottom: 1em;
+            text-align: justify;
+        }
+        
+        ul, ol {
+            margin-left: 2em;
+            margin-bottom: 1em;
+        }
+        
+        li {
+            margin-bottom: 0.5em;
+        }
+        
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        pre {
+            background: #f4f4f4;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 1em 0;
+            overflow-x: auto;
+            page-break-inside: avoid;
+        }
+        
+        pre code {
+            background: none;
+            padding: 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1em 0;
+            page-break-inside: avoid;
+        }
+        
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        
+        th {
+            background: #34495e;
+            color: white;
+            font-weight: bold;
+        }
+        
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        
+        hr {
+            border: none;
+            border-top: 2px solid #ddd;
+            margin: 2em 0;
+            page-break-after: avoid;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 2em;
+            padding-bottom: 1em;
+            border-bottom: 4px solid #2c3e50;
+        }
+        
+        .header h1 {
+            border: none;
+            margin-bottom: 0.2em;
+        }
+        
+        .subtitle {
+            font-size: 1.2em;
+            color: #555;
+            margin-bottom: 0.5em;
+        }
+        
+        .ticker {
+            font-size: 1.1em;
+            color: #2c3e50;
+            font-weight: bold;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            background: #27ae60;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            margin: 0.5em 0;
+        }
+        
+        .feature-list {
+            list-style: none;
+            margin-left: 0;
+        }
+        
+        .feature-list li:before {
+            content: "✓ ";
+            color: #27ae60;
+            font-weight: bold;
+            margin-right: 0.5em;
+        }
+        
+        blockquote {
+            border-left: 4px solid #3498db;
+            padding-left: 1em;
+            margin: 1em 0;
+            font-style: italic;
+            color: #555;
+        }
+        
+        .architecture-diagram {
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            background: #f9f9f9;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            overflow-x: auto;
+            page-break-inside: avoid;
+        }
+        
+        .footer {
+            margin-top: 3em;
+            padding-top: 1em;
+            border-top: 2px solid #ddd;
+            text-align: center;
+            font-size: 0.9em;
+            color: #777;
+        }
+        
+        @media print {
+            body {
+                padding: 0;
+            }
+            
+            h1, h2, h3 {
+                page-break-after: avoid;
+            }
+            
+            pre, table, blockquote {
+                page-break-inside: avoid;
+            }
+            
+            .no-print {
+                display: none;
+            }
+        }
+        
+        a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Mondoshawan</h1>
+        <div class="subtitle">Next-Generation Layer 1 Blockchain</div>
+        <div class="ticker">Mondoshawan Protocol | Ticker: MSHW</div>
+        <div class="status-badge">Testnet Ready | Production Potential</div>
+    </div>
+
+    <h2>Executive Summary</h2>
+    <p>Mondoshawan is a next-generation Layer 1 blockchain that combines quantum resistance, AI-native security, and innovative mining architecture to deliver unparalleled performance and fairness. Currently ready for testnet deployment, Mondoshawan integrates cutting-edge features at the protocol level rather than as afterthoughts.</p>
+    
+    <p><strong>Websites:</strong> <a href="https://mondoshawan.network">MONDOSHAWAN.network</a> | <a href="https://mondoshawan.io">MONDOSHAWAN.io</a> | <a href="https://mondoshawan.xyz">MONDOSHAWAN.xyz</a></p>
+    
+    <h3>Key Differentiators:</h3>
+    <ul class="feature-list">
+        <li>TriStream Mining Architecture (world's first)</li>
+        <li>Post-Quantum Cryptography (Dilithium3, SPHINCS+, Kyber)</li>
+        <li>Verkle Trees for stateless validation</li>
+        <li>AI-Driven Security & Forensics</li>
+        <li>MEV-Aware Transaction Ordering</li>
+        <li>Native Sharding with cross-shard support</li>
+        <li>Full EVM Compatibility</li>
+    </ul>
+
+    <hr>
+
+    <h2>1. TriStream Mining Architecture</h2>
+    
+    <h3>Unique Three-Stream Design</h3>
+    
+    <h4>Stream A: ASIC Mining</h4>
+    <ul>
+        <li>Algorithm: Blake3</li>
+        <li>Block Time: 10 seconds</li>
+        <li>Transactions: 10,000 per block</li>
+        <li>Reward: 50 MSHW tokens</li>
+        <li>Purpose: Security & decentralization</li>
+    </ul>
+    
+    <h4>Stream B: CPU/GPU Mining</h4>
+    <ul>
+        <li>Algorithm: KHeavyHash</li>
+        <li>Block Time: 1 second</li>
+        <li>Transactions: 5,000 per block</li>
+        <li>Reward: 25 MSHW tokens</li>
+        <li>Purpose: Accessibility & participation</li>
+    </ul>
+    
+    <h4>Stream C: ZK Proof Validation</h4>
+    <ul>
+        <li>Block Time: 100ms</li>
+        <li>Transactions: 1,000 per block</li>
+        <li>Reward: Fee-based only</li>
+        <li>Purpose: Speed & scalability</li>
+    </ul>
+    
+    <h3>Why TriStream?</h3>
+    <ol>
+        <li><strong>Inclusivity:</strong> Multiple mining algorithms allow various hardware participation</li>
+        <li><strong>Speed:</strong> Sub-second blocks via Stream C for fast transactions</li>
+        <li><strong>Security:</strong> Stream A provides Bitcoin-level security through ASIC resistance</li>
+        <li><strong>Decentralization:</strong> Three parallel streams prevent single-point centralization</li>
+    </ol>
+    
+    <p><strong>Implementation:</strong> <code>src/mining.rs</code> - Full production code</p>
+
+    <hr>
+
+    <h2>2. Post-Quantum Cryptography</h2>
+    
+    <h3>Quantum-Resistant from Day One</h3>
+    
+    <p>Mondoshawan is the first L1 blockchain with native post-quantum cryptography:</p>
+    
+    <h4>Signature Schemes:</h4>
+    <ul>
+        <li><strong>Dilithium3:</strong> NIST-approved lattice-based signatures</li>
+        <li><strong>SPHINCS+:</strong> Hash-based stateless signatures</li>
+        <li><strong>Ed25519:</strong> Classical fallback for compatibility</li>
+    </ul>
+    
+    <h4>Key Exchange:</h4>
+    <ul>
+        <li><strong>Kyber:</strong> Post-quantum key encapsulation</li>
+        <li>Used for P2P network encryption</li>
+        <li>Session key establishment</li>
+    </ul>
+    
+    <h3>Account Types</h3>
+    <pre><code>PqAccount::new_dilithium3()   // Quantum-resistant
+PqAccount::new_sphincsplus()  // Hash-based security
+PqAccount::new_ed25519()      // Classical compatibility</code></pre>
+    
+    <h4>Features:</h4>
+    <ul>
+        <li>Dual-signature transactions (classical + PQ)</li>
+        <li>Account type auto-detection</li>
+        <li>Backward compatibility with Ethereum wallets</li>
+    </ul>
+    
+    <p><strong>Implementation:</strong> <code>src/pqc/accounts.rs</code>, <code>src/pqc/kyber.rs</code></p>
+
+    <hr>
+
+    <h2>3. Verkle Trees & Stateless Validation</h2>
+    
+    <h3>The Future of Blockchain State</h3>
+    
+    <p>Mondoshawan implements Verkle trees for revolutionary state management:</p>
+    
+    <h4>Benefits:</h4>
+    <ul>
+        <li><strong>Compact Proofs:</strong> 10-100x smaller than Merkle proofs</li>
+        <li><strong>Stateless Clients:</strong> Verify transactions without full state</li>
+        <li><strong>Scalability:</strong> Reduced storage requirements</li>
+        <li><strong>Fast Sync:</strong> New nodes sync in minutes, not days</li>
+    </ul>
+    
+    <h3>Light Client Support</h3>
+    <pre><code>LightClient::verify_balance(address, balance, proof)
+LightClient::verify_storage(address, key, value, proof)</code></pre>
+    
+    <h3>State Proof System</h3>
+    <ul>
+        <li>KZG commitments for polynomial verification</li>
+        <li>Cryptographic state proofs</li>
+        <li>Cross-shard state verification</li>
+        <li>Fraud proof generation</li>
+    </ul>
+    
+    <p><strong>Implementation:</strong> <code>src/verkle/</code>, <code>src/light_client.rs</code></p>
+
+    <hr>
+
+    <h2>4. MEV Protection & Transaction Fairness</h2>
+    
+    <h3>AI-Aware Fairness Analysis</h3>
+    
+    <p>Mondoshawan includes protocol-level MEV detection and mitigation:</p>
+    
+    <h4>Detection Capabilities:</h4>
+    <ul>
+        <li>Sandwich attack identification</li>
+        <li>Front-running detection</li>
+        <li>Back-running analysis</li>
+        <li>Fee concentration monitoring</li>
+        <li>Reordering distance calculation</li>
+    </ul>
+    
+    <h3>Five Ordering Policies</h3>
+    <p>Users and validators choose transaction ordering:</p>
+    <ol>
+        <li><strong>FIFO</strong> - First In, First Out (most fair)</li>
+        <li><strong>Random</strong> - Prevents front-running completely</li>
+        <li><strong>Fee-Based</strong> - Maximizes miner revenue</li>
+        <li><strong>Hybrid</strong> - FIFO with fee boost for old transactions</li>
+        <li><strong>Time-Weighted</strong> - Age-based priority with fee tiebreaker</li>
+    </ol>
+    
+    <p><strong>Implementation:</strong> <code>src/mining/fairness.rs</code>, <code>src/mining/ordering.rs</code></p>
+
+    <hr>
+
+    <h2>5. AI-Driven Security & Forensics</h2>
+    
+    <h3>Native Fraud Detection</h3>
+    
+    <p>Mondoshawan has built-in AI-powered security at the protocol level:</p>
+    
+    <h4>Risk Scoring:</h4>
+    <ul>
+        <li>Real-time transaction risk assessment</li>
+        <li>Pattern-based fraud detection</li>
+        <li>Confidence scoring</li>
+        <li>Address behavior analysis</li>
+    </ul>
+    
+    <h4>Risk Categories:</h4>
+    <ul>
+        <li>Honeypot contracts</li>
+        <li>Mixer services</li>
+        <li>Phishing addresses</li>
+        <li>High-frequency trading bots</li>
+        <li>Suspicious fund movements</li>
+    </ul>
+    
+    <h3>Forensic Analysis Tools</h3>
+    <ul>
+        <li><strong>Fund Tracing:</strong> Follow money flows across addresses, multi-hop transaction tracking</li>
+        <li><strong>Anomaly Detection:</strong> Rapid fund movement, circular transactions, mixer patterns</li>
+        <li><strong>Address Summary:</strong> Total received/sent, unique contacts, suspicious patterns</li>
+    </ul>
+    
+    <p><strong>Implementation:</strong> <code>src/security/forensics.rs</code>, <code>src/security/risk_scoring.rs</code></p>
+
+    <hr>
+
+    <h2>6. Security Policies & Governance</h2>
+    
+    <h3>Opt-In Behavior Gating</h3>
+    
+    <p>Users and smart contracts can enforce security policies:</p>
+    
+    <h4>Policy Types:</h4>
+    <ul>
+        <li>Max risk score thresholds</li>
+        <li>Required risk summaries for contracts</li>
+        <li>Blocked addresses/labels</li>
+        <li>Minimum confidence requirements</li>
+        <li>Custom policy rules</li>
+    </ul>
+    
+    <h4>Use Cases:</h4>
+    <ul>
+        <li>DeFi protocols blocking risky addresses</li>
+        <li>Wallets warning users about scams</li>
+        <li>Exchanges enforcing compliance</li>
+        <li>DAOs governing fund movements</li>
+    </ul>
+    
+    <p><strong>Implementation:</strong> <code>src/security/policies.rs</code></p>
+
+    <hr>
+
+    <h2>7. Sharding Architecture</h2>
+    
+    <h3>Horizontal Scalability</h3>
+    
+    <p>Mondoshawan implements production-ready sharding:</p>
+    
+    <h4>Features:</h4>
+    <ul>
+        <li>Configurable shard count (default: 10)</li>
+        <li>Consistent hashing for address assignment</li>
+        <li>Cross-shard transaction support</li>
+        <li>Shard-aware block propagation</li>
+        <li>Per-shard transaction pools</li>
+    </ul>
+    
+    <h4>Assignment Strategies:</h4>
+    <ul>
+        <li><strong>Consistent Hashing:</strong> Deterministic address-to-shard mapping</li>
+        <li><strong>Random:</strong> Load balancing</li>
+        <li><strong>RoundRobin:</strong> Even distribution</li>
+    </ul>
+    
+    <p><strong>Implementation:</strong> <code>src/sharding.rs</code></p>
+
+    <hr>
+
+    <h2>8. EVM Compatibility</h2>
+    
+    <h3>Ethereum Smart Contract Support</h3>
+    
+    <p>Mondoshawan is fully EVM-compatible:</p>
+    
+    <h4>Supported:</h4>
+    <ul>
+        <li>Solidity smart contracts</li>
+        <li>Web3.js/ethers.js integration</li>
+        <li>MetaMask wallet support</li>
+        <li>Existing Ethereum tooling</li>
+        <li>Remix IDE compatibility</li>
+    </ul>
+    
+    <p><strong>Implementation:</strong> <code>src/evm.rs</code>, <code>src/rpc.rs</code></p>
+
+    <hr>
+
+    <h2>9. GhostDAG Consensus</h2>
+    
+    <h3>BlockDAG Architecture</h3>
+    
+    <p>Mondoshawan uses GhostDAG for high throughput:</p>
+    
+    <h4>Features:</h4>
+    <ul>
+        <li>Parallel block production</li>
+        <li>Blue/Red block classification</li>
+        <li>Topological ordering</li>
+        <li>Byzantine fault tolerance</li>
+        <li>Sub-second block times</li>
+    </ul>
+    
+    <h4>Advantages over Chains:</h4>
+    <ul>
+        <li>No orphan blocks wasted</li>
+        <li>Higher transaction throughput</li>
+        <li>Lower latency</li>
+        <li>Better resource utilization</li>
+    </ul>
+    
+    <p><strong>Implementation:</strong> <code>src/consensus.rs</code></p>
+
+    <hr>
+
+    <h2>10. Production Monitoring</h2>
+    
+    <h3>Prometheus & Grafana Integration</h3>
+    
+    <p>Complete observability out of the box:</p>
+    
+    <h4>Metrics Collected:</h4>
+    <ul>
+        <li>Blocks mined per stream</li>
+        <li>Transaction throughput (TPS)</li>
+        <li>Mining rewards</li>
+        <li>Network peers</li>
+        <li>Transaction pool size</li>
+        <li>Shard statistics</li>
+        <li>Cross-shard transactions</li>
+        <li>Block size distribution</li>
+    </ul>
+    
+    <h4>Pre-built Dashboards:</h4>
+    <ol>
+        <li>Mondoshawan Blockchain Overview</li>
+        <li>Mining Metrics (per-stream)</li>
+        <li>Network Metrics</li>
+        <li>Sharding Metrics</li>
+        <li>Transaction Metrics</li>
+    </ol>
+    
+    <p><strong>Implementation:</strong> <code>src/metrics.rs</code>, <code>grafana/</code></p>
+
+    <hr>
+
+    <h2>11. Developer Experience</h2>
+    
+    <h3>Complete API Suite</h3>
+    
+    <h4>JSON-RPC API:</h4>
+    <ul>
+        <li>129+ Mondoshawan-specific RPC methods (<code>mds_*</code>)</li>
+        <li>Full Ethereum-compatible subset (<code>eth_*</code>, <code>net_*</code>, <code>web3_*</code>)</li>
+        <li>Security, forensics, sharding, PQ accounts, DAG stats</li>
+        <li>WebSocket support</li>
+        <li>Rate limiting built-in</li>
+    </ul>
+    
+    <h4>Block Explorer:</h4>
+    <ul>
+        <li>Real-time blockchain data</li>
+        <li>Transaction search</li>
+        <li>Address lookup</li>
+        <li>Fairness metrics</li>
+        <li>Security analysis</li>
+        <li>Forensic tools</li>
+    </ul>
+
+    <hr>
+
+    <h2>12. Architecture Overview</h2>
+    
+    <div class="architecture-diagram">
+<pre>┌─────────────────────────────────────────────┐
+│     Mondoshawan Node Architecture           │
+├─────────────────────────────────────────────┤
+│                                             │
+│  ┌─────────────────────────────────────┐   │
+│  │   TriStream Mining Manager          │   │
+│  │  ┌─────┐ ┌─────┐ ┌─────┐          │   │
+│  │  │  A  │ │  B  │ │  C  │          │   │
+│  │  │ 10s │ │  1s │ │100ms│          │   │
+│  │  └─────┘ └─────┘ └─────┘          │   │
+│  └─────────────────────────────────────┘   │
+│             ↓                               │
+│  ┌─────────────────────────────────────┐   │
+│  │    GhostDAG Consensus Engine        │   │
+│  │  • Block ordering                   │   │
+│  │  • Blue/Red classification          │   │
+│  └─────────────────────────────────────┘   │
+│             ↓                               │
+│  ┌─────────────────────────────────────┐   │
+│  │       Blockchain State              │   │
+│  │  • Verkle Trees                     │   │
+│  │  • Account balances                 │   │
+│  │  • Smart contracts (EVM)            │   │
+│  │  • Shard states                     │   │
+│  └─────────────────────────────────────┘   │
+│             ↓                               │
+│  ┌─────────────────────────────────────┐   │
+│  │    Security & Fairness Layer        │   │
+│  │  • MEV Detection                    │   │
+│  │  • Risk Scoring                     │   │
+│  │  • Forensic Analysis                │   │
+│  │  • Policy Enforcement               │   │
+│  └─────────────────────────────────────┘   │
+│             ↓                               │
+│  ┌─────────────────────────────────────┐   │
+│  │      Storage & Persistence          │   │
+│  │  • Sled Database                    │   │
+│  │  • State persistence                │   │
+│  │  • Transaction indexing             │   │
+│  └─────────────────────────────────────┘   │
+│             ↓                               │
+│  ┌──────────────┬──────────────────────┐   │
+│  │  JSON-RPC    │   P2P Network        │   │
+│  │  API Server  │   • Peer discovery   │   │
+│  │  Port 8545   │   • Block prop       │   │
+│  └──────────────┴──────────────────────┘   │
+└─────────────────────────────────────────────┘</pre>
+    </div>
+
+    <hr>
+
+    <h2>13. Performance Characteristics</h2>
+    
+    <h3>Throughput</h3>
+    <ul>
+        <li><strong>Theoretical Max:</strong> ~16,000 TPS (combined streams)</li>
+        <li><strong>Stream A:</strong> 1,000 TPS</li>
+        <li><strong>Stream B:</strong> 5,000 TPS</li>
+        <li><strong>Stream C:</strong> 10,000 TPS</li>
+    </ul>
+    
+    <h3>Latency</h3>
+    <ul>
+        <li><strong>Finality:</strong> 1-10 seconds (stream-dependent)</li>
+        <li><strong>Confirmation:</strong> 1 block (probabilistic)</li>
+        <li><strong>Deep Confirmation:</strong> 6 blocks recommended</li>
+    </ul>
+    
+    <h3>Storage</h3>
+    <ul>
+        <li><strong>Block Size:</strong> Average 10-100 KB</li>
+        <li><strong>State Size:</strong> Grows with accounts (~100 bytes/account)</li>
+        <li><strong>Verkle Proofs:</strong> ~1-2 KB per proof</li>
+    </ul>
+
+    <hr>
+
+    <h2>14. Security Model</h2>
+    
+    <h3>Threat Resistance</h3>
+    <table>
+        <tr>
+            <th>Threat</th>
+            <th>Status</th>
+        </tr>
+        <tr>
+            <td>Quantum Attacks</td>
+            <td>✅ Resistant (PQ crypto)</td>
+        </tr>
+        <tr>
+            <td>51% Attacks</td>
+            <td>✅ Mitigated (TriStream)</td>
+        </tr>
+        <tr>
+            <td>MEV Exploitation</td>
+            <td>✅ Detected & mitigated</td>
+        </tr>
+        <tr>
+            <td>Front-Running</td>
+            <td>✅ Preventable (ordering policies)</td>
+        </tr>
+        <tr>
+            <td>Sybil Attacks</td>
+            <td>✅ PoW protection</td>
+        </tr>
+        <tr>
+            <td>Eclipse Attacks</td>
+            <td>✅ Peer diversity</td>
+        </tr>
+        <tr>
+            <td>DoS Attacks</td>
+            <td>✅ Rate limiting, pool limits</td>
+        </tr>
+    </table>
+    
+    <h3>Cryptographic Primitives</h3>
+    <ul>
+        <li><strong>Hashing:</strong> Blake3, SHA-256, Keccak-256</li>
+        <li><strong>Signatures:</strong> Dilithium3, SPHINCS+, Ed25519</li>
+        <li><strong>Key Exchange:</strong> Kyber</li>
+        <li><strong>Commitments:</strong> KZG (for Verkle)</li>
+    </ul>
+
+    <hr>
+
+    <h2>15. Tokenomics</h2>
+    
+    <h3>Mondoshawan Token</h3>
+    
+    <h4>Supply:</h4>
+    <ul>
+        <li>Initial: 0 (fair launch)</li>
+        <li>Emission: Mining rewards only</li>
+        <li>Max: No hard cap (inflationary)</li>
+    </ul>
+    
+    <h4>Distribution:</h4>
+    <ul>
+        <li>Stream A: 50 tokens/block</li>
+        <li>Stream B: 25 tokens/block</li>
+        <li>Stream C: Fee-based only</li>
+    </ul>
+    
+    <h4>Annual Inflation:</h4>
+    <ul>
+        <li>Year 1: ~52M tokens (Stream A + B)</li>
+        <li>Decreasing as block times stabilize</li>
+    </ul>
+
+    <hr>
+
+    <h2>16. Comparison with Other L1s</h2>
+    
+    <table>
+        <tr>
+            <th>Feature</th>
+            <th>Mondoshawan</th>
+            <th>Ethereum</th>
+            <th>Solana</th>
+            <th>Cardano</th>
+            <th>Kaspa</th>
+        </tr>
+        <tr>
+            <td><strong>Post-Quantum</strong></td>
+            <td>✅ Native</td>
+            <td>❌</td>
+            <td>❌</td>
+            <td>❌</td>
+            <td>❌</td>
+        </tr>
+        <tr>
+            <td><strong>MEV Protection</strong></td>
+            <td>✅ Built-in</td>
+            <td>🟡 External</td>
+            <td>❌</td>
+            <td>❌</td>
+            <td>✅</td>
+        </tr>
+        <tr>
+            <td><strong>Verkle Trees</strong></td>
+            <td>✅</td>
+            <td>🟡 Planned</td>
+            <td>❌</td>
+            <td>❌</td>
+            <td>❌</td>
+        </tr>
+        <tr>
+            <td><strong>AI Security</strong></td>
+            <td>✅ Native</td>
+            <td>❌</td>
+            <td>❌</td>
+            <td>❌</td>
+            <td>❌</td>
+        </tr>
+        <tr>
+            <td><strong>DAG Consensus</strong></td>
+            <td>✅ GhostDAG</td>
+            <td>❌</td>
+            <td>❌</td>
+            <td>❌</td>
+            <td>✅</td>
+        </tr>
+        <tr>
+            <td><strong>EVM Compatible</strong></td>
+            <td>✅</td>
+            <td>✅</td>
+            <td>❌</td>
+            <td>❌</td>
+            <td>❌</td>
+        </tr>
+        <tr>
+            <td><strong>Sharding</strong></td>
+            <td>✅ Native</td>
+            <td>🟡 Planned</td>
+            <td>❌</td>
+            <td>✅</td>
+            <td>❌</td>
+        </tr>
+        <tr>
+            <td><strong>TPS</strong></td>
+            <td>16,000+</td>
+            <td>15-30</td>
+            <td>65,000</td>
+            <td>250</td>
+            <td>32,000+</td>
+        </tr>
+        <tr>
+            <td><strong>Block Time</strong></td>
+            <td>0.1-10s</td>
+            <td>12s</td>
+            <td>0.4s</td>
+            <td>20s</td>
+            <td>1s</td>
+        </tr>
+    </table>
+
+    <hr>
+
+    <h2>17. Use Cases</h2>
+    
+    <h3>DeFi Applications</h3>
+    <ul>
+        <li>Decentralized exchanges (DEXs)</li>
+        <li>Lending/borrowing protocols</li>
+        <li>Stablecoins</li>
+        <li>Yield farming</li>
+        <li>Options/derivatives</li>
+    </ul>
+    
+    <h3>Enterprise Solutions</h3>
+    <ul>
+        <li>Supply chain tracking</li>
+        <li>Identity management</li>
+        <li>Healthcare records</li>
+        <li>Financial settlements</li>
+        <li>Compliance systems</li>
+    </ul>
+    
+    <h3>NFT & Gaming</h3>
+    <ul>
+        <li>NFT marketplaces</li>
+        <li>GameFi platforms</li>
+        <li>Digital collectibles</li>
+        <li>Metaverse assets</li>
+        <li>Play-to-earn games</li>
+    </ul>
+    
+    <h3>AI & Machine Learning</h3>
+    <ul>
+        <li>On-chain AI inference</li>
+        <li>Model marketplaces</li>
+        <li>Data provenance</li>
+        <li>Federated learning</li>
+        <li>AI agent coordination</li>
+    </ul>
+
+    <hr>
+
+    <h2>18. Roadmap</h2>
+    
+    <h3>Phase 1: Core Implementation ✅</h3>
+    <ul>
+        <li>Core blockchain ✅</li>
+        <li>TriStream mining ✅</li>
+        <li>GhostDAG consensus ✅</li>
+        <li>P2P networking ✅</li>
+        <li>Storage persistence ✅</li>
+        <li>Full RPC API (129+ methods) ✅</li>
+    </ul>
+    
+    <h3>Phase 2: Advanced Features ✅</h3>
+    <ul>
+        <li>Post-quantum crypto ✅</li>
+        <li>Verkle trees ✅</li>
+        <li>MEV protection ✅</li>
+        <li>Security forensics ✅</li>
+        <li>Sharding (core) ✅</li>
+        <li>Block explorer ✅</li>
+        <li>Monitoring (Prometheus/Grafana) ✅</li>
+    </ul>
+    
+    <h3>Phase 3: Testnet Launch (Current)</h3>
+    <ul>
+        <li>✅ Testnet-ready deployment</li>
+        <li>✅ All features operational</li>
+        <li>⚠️ Multi-node testing (recommended)</li>
+        <li>⚠️ Documentation polish</li>
+        <li>⚠️ Testnet configuration guide</li>
+    </ul>
+    
+    <h3>Phase 4: Ecosystem (Q2 2026)</h3>
+    <ul>
+        <li>Public testnet launch</li>
+        <li>Developer SDKs</li>
+        <li>Wallet integrations</li>
+        <li>Bridge to Ethereum</li>
+        <li>Community building</li>
+    </ul>
+    
+    <h3>Phase 5: Governance (Q3 2026)</h3>
+    <ul>
+        <li>On-chain governance</li>
+        <li>Parameter adjustment</li>
+        <li>Upgrade mechanisms</li>
+        <li>Community voting</li>
+        <li>Treasury management</li>
+    </ul>
+
+    <hr>
+
+    <h2>19. Technical Specifications</h2>
+    
+    <h3>Node Requirements</h3>
+    
+    <h4>Minimum:</h4>
+    <ul>
+        <li>CPU: 4 cores</li>
+        <li>RAM: 8 GB</li>
+        <li>Storage: 100 GB SSD</li>
+        <li>Network: 10 Mbps</li>
+    </ul>
+    
+    <h4>Recommended:</h4>
+    <ul>
+        <li>CPU: 8+ cores</li>
+        <li>RAM: 16+ GB</li>
+        <li>Storage: 500 GB NVMe SSD</li>
+        <li>Network: 100+ Mbps</li>
+    </ul>
+    
+    <h3>Software Stack</h3>
+    <ul>
+        <li><strong>Language:</strong> Rust 1.75+</li>
+        <li><strong>Database:</strong> Sled (embedded)</li>
+        <li><strong>Networking:</strong> Tokio async runtime</li>
+        <li><strong>Cryptography:</strong> RustCrypto, pqcrypto</li>
+        <li><strong>EVM:</strong> revm</li>
+        <li><strong>Monitoring:</strong> Prometheus</li>
+    </ul>
+
+    <hr>
+
+    <h2>20. Getting Started</h2>
+    
+    <h3>Installation</h3>
+    <pre><code># Clone repository
+git clone https://github.com/yourusername/Mondoshawan
+cd Mondoshawan/mondoshawan-blockchain
+
+# Build node
+cargo build --release
+
+# Run node
+./target/release/node</code></pre>
+    
+    <h3>Configuration</h3>
+    <pre><code>[node]
+port = 8080
+rpc_port = 8545
+miner_address = "0x0101010101010101010101010101010101010101"
+
+[features]
+enable_sharding = true
+shard_count = 10
+enable_verkle = true</code></pre>
+
+    <hr>
+
+    <h2>21. API Examples</h2>
+    
+    <h3>Get Fairness Metrics</h3>
+    <pre><code>curl -X POST http://localhost:8545 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "mds_getMevMetrics",
+    "params": [10],
+    "id": 1
+  }'</code></pre>
+    
+    <h3>Check Risk Score</h3>
+    <pre><code>curl -X POST http://localhost:8545 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "mds_getRiskScore",
+    "params": ["0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"],
+    "id": 1
+  }'</code></pre>
+    
+    <h3>Trace Funds</h3>
+    <pre><code>curl -X POST http://localhost:8545 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "mds_traceFunds",
+    "params": ["0x123...", 5, 10],
+    "id": 1
+  }'</code></pre>
+
+    <hr>
+
+    <h2>22. Security Audits</h2>
+    
+    <h3>Planned Audits</h3>
+    <ul>
+        <li>Trail of Bits (Q1 2026)</li>
+        <li>OpenZeppelin (Q2 2026)</li>
+        <li>CertiK (Q2 2026)</li>
+        <li>Quantstamp (Q3 2026)</li>
+    </ul>
+    
+    <h3>Bug Bounty Program</h3>
+    <ul>
+        <li>Launch: Q2 2026</li>
+        <li>Rewards: Up to $100,000</li>
+        <li>Scope: Core protocol, smart contracts</li>
+    </ul>
+
+    <hr>
+
+    <h2>23. Community & Support</h2>
+    
+    <h3>Resources</h3>
+    <ul>
+        <li><strong>Website:</strong> <a href="https://mondoshawan.io">https://mondoshawan.io</a></li>
+        <li><strong>GitHub:</strong> <a href="https://github.com/yourusername/Mondoshawan">https://github.com/yourusername/Mondoshawan</a></li>
+        <li><strong>Documentation:</strong> <a href="https://docs.mondoshawan.io">https://docs.mondoshawan.io</a> (Coming soon)</li>
+    </ul>
+    
+    <h3>Developer Support</h3>
+    <ul>
+        <li>Stack Overflow: <code>Mondoshawan</code> tag</li>
+        <li>GitHub Issues</li>
+        <li>Discord #dev-support channel</li>
+        <li>Monthly community calls</li>
+    </ul>
+
+    <hr>
+
+    <h2>24. Team</h2>
+    
+    <h3>Core Contributors</h3>
+    <ul>
+        <li><strong>David Cooper:</strong> Project Lead, Network Architect (CCIE, USAF Veteran)</li>
+        <li>Additional team members to be announced</li>
+    </ul>
+    
+    <h3>Advisors</h3>
+    <ul>
+        <li>To be announced</li>
+    </ul>
+
+    <hr>
+
+    <h2>25. Legal & Compliance</h2>
+    
+    <h3>Token Status</h3>
+    <ul>
+        <li>Not a security (pure utility token)</li>
+        <li>No pre-mine or ICO</li>
+        <li>Fair launch via mining only</li>
+    </ul>
+    
+    <h3>Regulatory Compliance</h3>
+    <ul>
+        <li>GDPR compliant</li>
+        <li>AML/KYC at exchange level only</li>
+        <li>Open-source and transparent</li>
+    </ul>
+
+    <hr>
+
+    <h2>Conclusion</h2>
+    
+    <p>Mondoshawan represents the next generation of Layer 1 blockchains by integrating:</p>
+    
+    <ul class="feature-list">
+        <li><strong>Quantum Resistance</strong> - Future-proof cryptography</li>
+        <li><strong>AI-Native Security</strong> - Protocol-level fraud detection</li>
+        <li><strong>Revolutionary Mining</strong> - TriStream architecture</li>
+        <li><strong>Advanced State Management</strong> - Verkle trees</li>
+        <li><strong>Fair Transaction Ordering</strong> - MEV protection</li>
+        <li><strong>Horizontal Scaling</strong> - Native sharding</li>
+        <li><strong>Full EVM Compatibility</strong> - Ethereum ecosystem access</li>
+    </ul>
+    
+    <blockquote>
+        <p><strong>Mondoshawan is not just another L1 - it's the blueprint for blockchain's future.</strong></p>
+    </blockquote>
+
+    <hr>
+
+    <h2>Appendix A: RPC Methods</h2>
+    
+    <h3>Ethereum-Compatible Methods</h3>
+    <ul>
+        <li><code>eth_blockNumber</code>, <code>eth_getBalance</code>, <code>eth_getTransactionCount</code></li>
+        <li><code>eth_getBlockByNumber</code>, <code>eth_getBlockByHash</code></li>
+        <li><code>eth_getTransactionByHash</code>, <code>eth_getTransactionReceipt</code></li>
+        <li><code>eth_sendTransaction</code>, <code>eth_sendRawTransaction</code></li>
+        <li><code>eth_call</code>, <code>eth_estimateGas</code>, <code>eth_gasPrice</code></li>
+        <li><code>eth_chainId</code>, <code>eth_syncing</code></li>
+        <li><code>net_version</code>, <code>net_peerCount</code></li>
+    </ul>
+    
+    <h3>Mondoshawan-Specific Methods (129+ total, <code>mds_*</code> prefix)</h3>
+    
+    <h4>DAG & Consensus:</h4>
+    <ul>
+        <li><code>mds_getDagStats</code>, <code>mds_getTps</code>, <code>mds_getBlueScore</code></li>
+        <li><code>mds_getBlockOrder</code>, <code>mds_getParentHashes</code></li>
+    </ul>
+    
+    <h4>Fairness & MEV:</h4>
+    <ul>
+        <li><code>mds_getMevMetrics</code>, <code>mds_getBlockFairness</code></li>
+        <li><code>mds_setOrderingPolicy</code>, <code>mds_getOrderingPolicy</code></li>
+        <li><code>mds_getFairnessMetrics</code></li>
+    </ul>
+    
+    <h4>Security & Risk:</h4>
+    <ul>
+        <li><code>mds_getRiskScore</code>, <code>mds_getRiskLabels</code></li>
+        <li><code>mds_getTransactionRisk</code>, <code>mds_analyzeBehavior</code></li>
+        <li><code>mds_detectAnomalies</code></li>
+    </ul>
+    
+    <h4>Forensics:</h4>
+    <ul>
+        <li><code>mds_traceFunds</code>, <code>mds_getAddressSummary</code></li>
+        <li><code>mds_findRelatedAddresses</code>, <code>mds_getTransactionPath</code></li>
+    </ul>
+    
+    <h4>Sharding:</h4>
+    <ul>
+        <li><code>mds_getShardStats</code>, <code>mds_getCrossShardTransaction</code></li>
+        <li><code>mds_getShardForAddress</code>, <code>mds_getShardTransactions</code></li>
+        <li><code>mds_getShardBlock</code>, <code>mds_getShardBalance</code></li>
+    </ul>
+    
+    <h4>Verkle & Light Client:</h4>
+    <ul>
+        <li><code>mds_getStateRoot</code>, <code>mds_getStateProof</code></li>
+        <li><code>mds_verifyStateProof</code>, <code>mds_getLightClientProof</code></li>
+    </ul>
+    
+    <h4>Post-Quantum:</h4>
+    <ul>
+        <li><code>mds_getPqAccountType</code>, <code>mds_createPqAccount</code></li>
+        <li><code>mds_signPqTransaction</code>, <code>mds_verifyPqSignature</code></li>
+    </ul>
+    
+    <h4>Policies:</h4>
+    <ul>
+        <li><code>mds_addSecurityPolicy</code>, <code>mds_removeSecurityPolicy</code></li>
+        <li><code>mds_getSecurityPolicies</code>, <code>mds_checkPolicy</code></li>
+    </ul>
+    
+    <p><em>See full RPC documentation for complete method list</em></p>
+
+    <div class="footer">
+        <p><strong>Document Version:</strong> 1.1</p>
+        <p><strong>Last Updated:</strong> January 2026</p>
+        <p><strong>Status:</strong> Testnet Ready | Production Potential</p>
+        <p style="margin-top: 1em;"><em>Mondoshawan: Building the Future of Decentralized Finance</em></p>
+    </div>
+</body>
+</html>

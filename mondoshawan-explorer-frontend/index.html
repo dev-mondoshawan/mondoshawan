@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mondoshawan Block Explorer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">Mondoshawan Explorer</h1>
+            <ul class="nav-links">
+                <li><a href="#dashboard">Dashboard</a></li>
+                <li><a href="#blocks">Blocks</a></li>
+                <li><a href="#transactions">Transactions</a></li>
+                <li><a href="#addresses">Addresses</a></li>
+                <li><a href="#sharding">🔷 Sharding</a></li>
+                <li><a href="#fairness">⚖️ Fairness & MEV</a></li>
+                <li><a href="#forensics">🔍 Forensics</a></li>
+                <li><a href="#explain">💡 Explain</a></li>
+                <li><a href="#security">🔒 Security</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Search Bar -->
+        <div class="search-section">
+            <input type="text" id="search-input" placeholder="Search by block hash, transaction hash, or address..." class="search-input">
+            <button id="search-btn" class="search-btn">Search</button>
+        </div>
+
+        <!-- Dashboard Section -->
+        <section id="dashboard" class="section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h2>Network Dashboard</h2>
+                <div id="last-updated" style="font-size: 0.9rem; color: #64748b;">
+                    <span id="update-indicator" style="display: inline-block; width: 8px; height: 8px; background: #10b981; border-radius: 50%; margin-right: 0.5rem; animation: pulse 2s infinite;"></span>
+                    <span id="update-time">Updating...</span>
+                </div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Blocks</h3>
+                    <p id="total-blocks" class="stat-value">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Transactions</h3>
+                    <p id="total-transactions" class="stat-value">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Peers Connected</h3>
+                    <p id="peers-connected" class="stat-value">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>TPS</h3>
+                    <p id="tps" class="stat-value">-</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Recent Blocks Section -->
+        <section id="blocks" class="section">
+            <h2>Recent Blocks</h2>
+            <div id="blocks-list" class="blocks-list">
+                <p>Loading blocks...</p>
+            </div>
+        </section>
+
+        <!-- Recent Transactions Section -->
+        <section id="transactions" class="section">
+            <h2>Recent Transactions</h2>
+            <div id="transactions-list" class="transactions-list">
+                <p>Loading transactions...</p>
+            </div>
+        </section>
+
+        <!-- Address Section -->
+        <section id="addresses" class="section">
+            <h2>Address Lookup</h2>
+            <div id="address-info" class="address-info">
+                <p>Enter an address to view details</p>
+            </div>
+        </section>
+
+        <!-- Sharding Section -->
+        <section id="sharding" class="section">
+            <h2>🔷 Sharding Overview</h2>
+            <div id="sharding-stats" class="sharding-stats">
+                <p>Loading sharding statistics...</p>
+            </div>
+            <div id="cross-shard-transactions" class="cross-shard-section">
+                <h3>Cross-Shard Transactions</h3>
+                <div id="cross-shard-list" class="cross-shard-list">
+                    <p>Loading cross-shard transactions...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Fairness & MEV Section -->
+        <section id="fairness" class="section">
+            <h2>⚖️ Fairness & MEV Analysis</h2>
+            <div id="ordering-policy" class="ordering-policy-section">
+                <h3>Current Ordering Policy</h3>
+                <div id="policy-display" class="policy-display">
+                    <p>Loading ordering policy...</p>
+                </div>
+                <div class="policy-controls">
+                    <label for="policy-select">Change Policy:</label>
+                    <select id="policy-select" class="policy-select">
+                        <option value="fifo">FIFO (Most Fair)</option>
+                        <option value="random">Random (Prevents Front-Running)</option>
+                        <option value="feebased">Fee-Based (Maximizes Revenue)</option>
+                        <option value="hybrid">Hybrid (FIFO + Fee Boost)</option>
+                        <option value="timeweighted">Time-Weighted Fairness</option>
+                    </select>
+                    <button id="set-policy-btn" class="set-policy-btn">Set Policy</button>
+                </div>
+            </div>
+            <div id="mev-metrics" class="mev-metrics-section">
+                <h3>MEV Metrics (Last 10 Blocks)</h3>
+                <div id="mev-display" class="mev-display">
+                    <p>Loading MEV metrics...</p>
+                </div>
+            </div>
+            <div id="block-fairness" class="block-fairness-section">
+                <h3>Block Fairness Analysis</h3>
+                <div id="fairness-display" class="fairness-display">
+                    <p>Enter a block hash to view fairness metrics</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Forensics Section -->
+        <section id="forensics" class="section">
+            <h2>🔍 Forensic Analysis</h2>
+            <div id="fund-tracing" class="forensic-section">
+                <h3>Fund Tracing</h3>
+                <div class="tracing-controls">
+                    <input type="text" id="trace-address-input" placeholder="Enter address (0x...)" class="address-input">
+                    <input type="number" id="trace-hops-input" placeholder="Max hops" value="5" min="1" max="10" class="hops-input">
+                    <button id="trace-funds-btn" class="trace-btn">Trace Funds</button>
+                </div>
+                <div id="fund-flows-display" class="fund-flows-display">
+                    <p>Enter an address to trace fund flows</p>
+                </div>
+            </div>
+            <div id="address-summary" class="forensic-section">
+                <h3>Address Summary</h3>
+                <div class="summary-controls">
+                    <input type="text" id="summary-address-input" placeholder="Enter address (0x...)" class="address-input">
+                    <button id="get-summary-btn" class="summary-btn">Get Summary</button>
+                </div>
+                <div id="summary-display" class="summary-display">
+                    <p>Enter an address to view forensic summary</p>
+                </div>
+            </div>
+            <div id="anomaly-detection" class="forensic-section">
+                <h3>Anomaly Detection</h3>
+                <div class="anomaly-controls">
+                    <input type="text" id="anomaly-address-input" placeholder="Enter address (0x...)" class="address-input">
+                    <button id="detect-anomalies-btn" class="anomaly-btn">Detect Anomalies</button>
+                </div>
+                <div id="anomaly-display" class="anomaly-display">
+                    <p>Enter an address to detect anomalies</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Explain Section -->
+        <section id="explain" class="section">
+            <h2>💡 Explain This Address/Transaction</h2>
+            <div class="explain-info">
+                <p>Get human-readable explanations of addresses and transactions, including behavior analysis, risk assessment, and actionable insights.</p>
+            </div>
+            <div id="explain-content" class="explain-content">
+                <p class="info-message">Search for an address or transaction to see an explanation</p>
+            </div>
+        </section>
+
+        <!-- Security Section -->
+        <section id="security" class="section">
+            <h2>🔒 Security & Risk Analysis</h2>
+            <div class="security-info">
+                <p>Mondoshawan includes native AI-driven security features:</p>
+                <ul>
+                    <li><strong>Risk Scoring:</strong> Every address and transaction is analyzed for fraud patterns</li>
+                    <li><strong>Pattern Detection:</strong> Identifies honeypots, mixers, phishing, and suspicious behavior</li>
+                    <li><strong>Real-time Analysis:</strong> Risk scores are calculated on-the-fly using rule-based heuristics</li>
+                </ul>
+                <p style="margin-top: 1rem;">
+                    <strong>How to use:</strong> Search for any address or transaction hash to see its risk analysis.
+                    Risk scores range from 0% (safe) to 100% (high risk).
+                </p>
+            </div>
+        </section>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+
