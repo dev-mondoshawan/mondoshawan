@@ -767,7 +767,7 @@ curl -X POST http://localhost:8545 \
 ## 24. Team
 
 ### Core Contributors
-- **David Cooper**: Project Lead, Network Architect (CCIE, USAF Veteran)
+- Core development team
 - Additional team members to be announced
 
 ### Advisors
