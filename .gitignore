@@ -116,6 +116,7 @@ RENAME_*.md
 # POC and internal implementations
 mondoshawan_poc/
 mondoshawan_real/
+msvcrt.lib-generator/
 
 # Website files (not for public repo)
 mondoshawan-website/

@@ -54,6 +54,43 @@ All custom RPC methods use the `mds_*` prefix:
 - **Stream B Reward**: 25 MSHW per block
 - **Stream C Reward**: Fee-based only (no block reward)
 
+## Visual Assets
+
+### Logo & Icons
+
+**Main Logo**: Hexagonal gem emblem with "MONDOSHAWAN PROTOCOL" text
+- **Tagline**: "SECURE. SCALABLE. GUARDIAN."
+- **Usage**: Website headers, documentation, marketing materials
+- **Colors**: Deep blue/purple gradient with neon accents
+
+**App Icon**: Shield with "M" in rounded square frame
+- **Usage**: Favicon, app icons, wallet icons, exchange listings
+- **Colors**: Gold/purple shield with neon blue border
+
+**Security Icon**: Shield with checkmark and padlock
+- **Usage**: Security features, trust indicators, verification badges
+- **Colors**: Magenta-to-purple gradient with neon glow
+
+**Banner**: Crystalline emblems with energy streams
+- **Usage**: Website hero sections, social media headers, marketing banners
+- **Colors**: Blue/purple/gold energy streams on dark background
+
+**See**: `BRANDING_ASSETS.md` for complete asset guide
+
+### Color Palette
+
+**Primary Colors**:
+- Deep Blue: #1E3A5F
+- Purple: #6B46C1
+- Neon Blue: #00BFFF
+- Magenta: #FF00FF
+- Gold: #FFD700
+
+**Background Colors**:
+- Dark Base: #0A0A0A
+- Deep Blue: #1E3A5F
+- Royal Purple: #4B0082
+
 ## Display Guidelines
 
 ### Console Output
@@ -71,6 +108,16 @@ Stream A: Prepared block #1 with 100 txs, reward: 50 MSHW
 - Use "MSHW" in code comments when referring to token amounts
 - Use "Mondoshawan" when referring to the protocol/blockchain
 
+### Visual Branding
+- Use main logo in headers and prominent positions
+- Use app icon for favicons and small icons
+- Use security icon for trust/security indicators
+- Use banner for hero sections and marketing
+- Maintain consistent color scheme
+- Preserve aspect ratios
+- Test on dark backgrounds
+
 ---
 
-**Last Updated**: January 2026
+**Last Updated**: January 2026  
+**Assets**: See `BRANDING_ASSETS.md` for complete guide
