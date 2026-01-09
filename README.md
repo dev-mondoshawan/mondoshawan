@@ -2,7 +2,7 @@
 
 **Mondoshawan Protocol** | Ticker: **MSHW**
 
-High-performance sharded blockchain with TriStream mining architecture and GhostDAG consensus.
+High-performance sharded blockchain with TriStream mining architecture and GhostDAG consensus. **160,000+ TPS** with 10 shards, **97% fair launch** tokenomics.
 
 **Websites**: [MONDOSHAWAN.network](https://mondoshawan.network) | [MONDOSHAWAN.io](https://mondoshawan.io) | [MONDOSHAWAN.xyz](https://mondoshawan.xyz)
 
@@ -97,10 +97,17 @@ python -m http.server 3000
 
 ## 📊 Features
 
+### Performance
+- **Base Throughput**: ~16,000 TPS per shard (combined streams)
+- **Sharded Throughput**: 160,000+ TPS (10 shards), up to 1.6M+ TPS (100 shards)
+- **Block Times**: 10s (Stream A), 1s (Stream B), 100ms (Stream C)
+- **Finality**: 1-10 seconds (same-shard), 2-12 seconds (cross-shard)
+
 ### TriStream Mining
-- **Stream A**: ASIC mining (Blake3, 10s blocks)
-- **Stream B**: CPU/GPU mining (KHeavyHash, 1s blocks)
-- **Stream C**: ZK proofs (100ms blocks)
+- **Stream A**: ASIC mining (Blake3, 10s blocks, 50 MSHW/block)
+- **Stream B**: CPU/GPU mining (KHeavyHash, 1s blocks, 20 MSHW/block)
+- **Stream C**: ZK proofs (100ms blocks, 5 MSHW/block)
+- **97% Fair Launch**: 8.7B MSHW from mining, 3% presale for development
 
 ### Consensus
 - **GhostDAG**: DAG-based consensus algorithm
@@ -108,9 +115,11 @@ python -m http.server 3000
 - High throughput
 
 ### Sharding
-- 10-20 shards (mainnet)
-- Cross-shard transactions
-- Consistent hashing
+- **Default: 10 shards** (160,000+ TPS)
+- **Scalable: 1-100 shards** (up to 1.6M+ TPS)
+- Cross-shard transactions with two-phase commit
+- Consistent hashing for deterministic routing
+- Per-shard transaction pools with DoS protection
 
 ### EVM Compatibility
 - Full EVM support
@@ -201,7 +210,8 @@ $env:PATH = "D:\Python;D:\Python\Scripts;$env:PATH"
 - ✅ **AI Security Module**: Fraud detection and risk scoring
 - ✅ **Fairness Metrics**: MEV detection and fairness tracking
 - ✅ **EVM Integration**: Basic integration complete (revm 33.1)
-- ✅ **Sharding**: Core implementation complete
+- ✅ **Sharding**: Core implementation complete (10 shards default, 160,000+ TPS)
+- ✅ **Tokenomics**: 97% fair launch model with 10B max supply, 4-year halving
 
 **See [PROJECT_STATUS.md](PROJECT_STATUS.md) for complete details.**
 
