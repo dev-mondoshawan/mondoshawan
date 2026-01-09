@@ -105,6 +105,9 @@ logs/
 *_DEV*.md
 *_NOTES*.md
 PYRAX_*.md
+*PYRAX*.md
+*_POSITIONING*.md
+*_COMPARISON*.md
 RENAME_*.md
 
 # Development scripts
