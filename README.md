@@ -219,6 +219,14 @@ $env:PATH = "D:\Python;D:\Python\Scripts;$env:PATH"
 
 MIT OR Apache-2.0
 
+## 🌐 Community & Links
+
+- **Website**: https://mondoshawan.io
+- **GitHub**: https://github.com/dev-mondoshawan/mondoshawan
+- **Whitepaper**: https://mondoshawan.io/Mondoshawan_WHITEPAPER.html
+- **Explorer**: https://mondoshawan.io/explorer/
+- **Twitter**: @DevMondoshawan (https://x.com/DevMondoshawan)
+
 ## 🤝 Contributing
 
 See [SECURITY/SECURITY_GUIDE.md](SECURITY/SECURITY_GUIDE.md) for security best practices.

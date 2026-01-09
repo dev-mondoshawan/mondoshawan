@@ -1206,11 +1206,11 @@ curl -X POST http://localhost:8545 \
 ## 23. Community & Support
 
 ### Resources
-- **Website**: https://Mondoshawan.io (Coming soon)
+- **Website**: https://Mondoshawan.io 
 - **GitHub**: https://github.com/dev-mondoshawan/mondoshawan
-- **Documentation**: https://docs.Mondoshawan.io (Coming soon)
+- **Documentation**: https://docs.Mondoshawan.io 
 - **Discord**: https://discord.gg/Mondoshawan (Coming soon)
-- **Twitter**: @MondoshawanBlockchain (Coming soon)
+- **Twitter**: @DevMondoshawan (https://x.com/DevMondoshawan)
 
 ### Developer Support
 - Stack Overflow: `Mondoshawan` tag
