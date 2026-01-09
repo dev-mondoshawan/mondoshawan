@@ -59,6 +59,8 @@ pub struct MiningManager {
     ordering_context: Arc<RwLock<ordering::OrderingContext>>, // Ordering context
     metrics: Option<crate::metrics::MetricsHandle>, // Optional metrics
     block_sender: mpsc::UnboundedSender<BlockSubmission>, // Channel sender for block submissions
+    node_registry: Option<Arc<tokio::sync::RwLock<crate::governance::NodeRegistry>>>, // Optional node registry for participation tracking
+    node_identity: Option<crate::governance::NodeIdentity>, // Node identity for participation tracking
 }
 
 impl MiningManager {
@@ -71,6 +73,8 @@ impl MiningManager {
         let miner_address_processor = miner_address;
         let fairness_analyzer_processor = Arc::new(tokio::sync::RwLock::new(fairness::FairnessAnalyzer::new()));
         let metrics_processor = None::<crate::metrics::MetricsHandle>;
+        let node_registry_processor = None::<Arc<tokio::sync::RwLock<crate::governance::NodeRegistry>>>;
+        let node_identity_processor = None::<crate::governance::NodeIdentity>;
         
         tokio::spawn(async move {
             process_blocks(
@@ -79,6 +83,8 @@ impl MiningManager {
                 miner_address_processor,
                 fairness_analyzer_processor,
                 metrics_processor,
+                node_registry_processor,
+                node_identity_processor,
             ).await;
         });
         
@@ -95,6 +101,56 @@ impl MiningManager {
             ordering_context: Arc::new(RwLock::new(ordering::OrderingContext::new())),
             metrics: None,
             block_sender,
+            node_registry: None,
+            node_identity: None,
+        }
+    }
+    
+    /// Create mining manager with node registry for participation tracking
+    pub fn with_node_registry(
+        blockchain: Arc<RwLock<Blockchain>>,
+        miner_address: Address,
+        node_registry: Arc<tokio::sync::RwLock<crate::governance::NodeRegistry>>,
+        node_identity: crate::governance::NodeIdentity,
+    ) -> Self {
+        // Create channel for block submissions
+        let (block_sender, block_receiver) = mpsc::unbounded_channel();
+        
+        // Start block processor task
+        let blockchain_processor = blockchain.clone();
+        let miner_address_processor = miner_address;
+        let fairness_analyzer_processor = Arc::new(tokio::sync::RwLock::new(fairness::FairnessAnalyzer::new()));
+        let metrics_processor = None::<crate::metrics::MetricsHandle>;
+        let node_registry_processor = Some(node_registry.clone());
+        let node_identity_processor = Some(node_identity.clone());
+        
+        tokio::spawn(async move {
+            process_blocks(
+                block_receiver,
+                blockchain_processor,
+                miner_address_processor,
+                fairness_analyzer_processor,
+                metrics_processor,
+                node_registry_processor,
+                node_identity_processor,
+            ).await;
+        });
+        
+        Self {
+            blockchain,
+            tx_pool: Arc::new(SegQueue::new()),
+            tx_pool_size: Arc::new(AtomicUsize::new(0)),
+            block_counter: Arc::new(AtomicU64::new(0)),
+            miner_address,
+            is_mining: Arc::new(RwLock::new(false)),
+            shard_manager: None,
+            fairness_analyzer: Arc::new(tokio::sync::RwLock::new(fairness::FairnessAnalyzer::new())),
+            ordering_policy: Arc::new(RwLock::new(ordering::OrderingPolicy::default())),
+            ordering_context: Arc::new(RwLock::new(ordering::OrderingContext::new())),
+            metrics: None,
+            block_sender,
+            node_registry: Some(node_registry),
+            node_identity: Some(node_identity),
         }
     }
 
@@ -112,6 +168,8 @@ impl MiningManager {
         let miner_address_processor = miner_address;
         let fairness_analyzer_processor = Arc::new(tokio::sync::RwLock::new(fairness::FairnessAnalyzer::new()));
         let metrics_processor = None::<crate::metrics::MetricsHandle>;
+        let node_registry_processor = None::<Arc<tokio::sync::RwLock<crate::governance::NodeRegistry>>>;
+        let node_identity_processor = None::<crate::governance::NodeIdentity>;
         
         tokio::spawn(async move {
             process_blocks(
@@ -120,6 +178,8 @@ impl MiningManager {
                 miner_address_processor,
                 fairness_analyzer_processor,
                 metrics_processor,
+                node_registry_processor,
+                node_identity_processor,
             ).await;
         });
         
@@ -136,6 +196,8 @@ impl MiningManager {
             ordering_context: Arc::new(RwLock::new(ordering::OrderingContext::new())),
             metrics: None,
             block_sender,
+            node_registry: None,
+            node_identity: None,
         }
     }
     
@@ -145,6 +207,8 @@ impl MiningManager {
     }
     
     /// Clone for mining (internal use)
+    /// Clone mining manager for parallel stream mining
+    /// Note: node_registry and node_identity are shared across all streams
     fn clone_for_mining(&self) -> Self {
         Self {
             blockchain: self.blockchain.clone(),
@@ -159,6 +223,8 @@ impl MiningManager {
             ordering_context: self.ordering_context.clone(),
             metrics: self.metrics.clone(),
             block_sender: self.block_sender.clone(), // Clone sender (receiver is shared)
+            node_registry: self.node_registry.clone(),
+            node_identity: self.node_identity.clone(),
         }
     }
     
@@ -295,14 +361,13 @@ impl MiningManager {
             // Get parent hashes and block number
             let (parent_hashes, block_number) = {
                 let blockchain = self.blockchain.read().await;
-                let latest = blockchain.latest_block_number();
-                let parents = if latest > 0 {
+                let blocks = blockchain.get_blocks();
+                let parents = if !blocks.is_empty() {
                     // Get last few blocks as parents (DAG structure)
                     let mut parents = Vec::new();
-                    for i in 0..3.min(latest as usize + 1) {
-                        if let Some(block) = blockchain.get_block_by_number(latest - i as u64) {
-                            parents.push(block.hash);
-                        }
+                    let start_idx = if blocks.len() >= 3 { blocks.len() - 3 } else { 0 };
+                    for block in &blocks[start_idx..] {
+                        parents.push(block.hash);
                     }
                     parents
                 } else {
@@ -413,13 +478,13 @@ impl MiningManager {
 
             let (parent_hashes, block_number) = {
                 let blockchain = self.blockchain.read().await;
-                let latest = blockchain.latest_block_number();
-                let parents = if latest > 0 {
+                let blocks = blockchain.get_blocks();
+                let parents = if !blocks.is_empty() {
+                    // Get last few blocks as parents (DAG structure)
                     let mut parents = Vec::new();
-                    for i in 0..3.min(latest as usize + 1) {
-                        if let Some(block) = blockchain.get_block_by_number(latest - i as u64) {
-                            parents.push(block.hash);
-                        }
+                    let start_idx = if blocks.len() >= 3 { blocks.len() - 3 } else { 0 };
+                    for block in &blocks[start_idx..] {
+                        parents.push(block.hash);
                     }
                     parents
                 } else {
@@ -498,13 +563,13 @@ impl MiningManager {
 
             let (parent_hashes, block_number) = {
                 let blockchain = self.blockchain.read().await;
-                let latest = blockchain.latest_block_number();
-                let parents = if latest > 0 {
+                let blocks = blockchain.get_blocks();
+                let parents = if !blocks.is_empty() {
+                    // Get last few blocks as parents (DAG structure)
                     let mut parents = Vec::new();
-                    for i in 0..3.min(latest as usize + 1) {
-                        if let Some(block) = blockchain.get_block_by_number(latest - i as u64) {
-                            parents.push(block.hash);
-                        }
+                    let start_idx = if blocks.len() >= 3 { blocks.len() - 3 } else { 0 };
+                    for block in &blocks[start_idx..] {
+                        parents.push(block.hash);
                     }
                     parents
                 } else {
@@ -544,6 +609,8 @@ async fn process_blocks(
     miner_address: Address,
     fairness_analyzer: Arc<tokio::sync::RwLock<fairness::FairnessAnalyzer>>,
     metrics: Option<crate::metrics::MetricsHandle>,
+    node_registry: Option<Arc<tokio::sync::RwLock<crate::governance::NodeRegistry>>>,
+    node_identity: Option<crate::governance::NodeIdentity>,
 ) {
     while let Some(submission) = receiver.recv().await {
         let BlockSubmission { block, stream_type, block_number, reward, fees } = submission;
@@ -563,6 +630,16 @@ async fn process_blocks(
                 continue;
             }
         } // Release blockchain lock
+        
+        // Record participation in node registry (CRITICAL for longevity tracking)
+        if let (Some(ref registry), Some(ref identity)) = (&node_registry, &node_identity) {
+            let participation = crate::governance::ParticipationType::BlockMined {
+                stream: stream_type,
+                block_hash: block.hash,
+            };
+            let mut registry = registry.write().await;
+            registry.record_participation(identity, participation);
+        }
         
         // Analyze fairness (outside blockchain lock)
         let fairness_metrics = {

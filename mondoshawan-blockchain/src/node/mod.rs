@@ -226,6 +226,9 @@ impl Node {
         // Set light client in RPC server
         rpc_server.set_light_client(light_client.clone());
         
+        // Set network manager in RPC server for peer count
+        rpc_server.set_network_manager(network_manager.clone());
+        
         // Create and set policy manager
         let policy_manager = Arc::new(tokio::sync::RwLock::new(crate::security::SecurityPolicyManager::new()));
         rpc_server.set_policy_manager(policy_manager.clone());
@@ -252,19 +255,14 @@ impl Node {
         println!("   Data Directory: {}", self.config.data_dir);
         
         // Create genesis block (only if blockchain is empty)
+        // Use deterministic genesis so all nodes start with the same chain
         {
             let mut blockchain = self.blockchain.write().await;
             if blockchain.get_blocks().is_empty() {
-                let genesis_header = crate::blockchain::BlockHeader::new(
-                    vec![],
-                    0,
-                    crate::types::StreamType::StreamA,
-                    4,
-                );
-                let genesis = crate::blockchain::Block::new(genesis_header, vec![], vec![]);
+                let genesis = create_deterministic_genesis();
                 blockchain.add_block(genesis)
                     .map_err(|e| e.to_string())?;
-                println!("✅ Genesis block created");
+                println!("✅ Genesis block created (deterministic)");
             } else {
                 println!("✅ Loaded existing blockchain ({} blocks)", blockchain.get_blocks().len());
             }
@@ -572,4 +570,28 @@ async fn start_rpc_server(addr: String, rpc_server: Arc<crate::rpc::RpcServer>, 
             });
         }
     }
+}
+
+/// Create a deterministic genesis block that all nodes will share
+/// This ensures all nodes start from the same chain state
+fn create_deterministic_genesis() -> crate::blockchain::Block {
+    use crate::blockchain::{Block, BlockHeader};
+    use crate::types::StreamType;
+    
+    // Fixed timestamp for genesis (January 1, 2026, 00:00:00 UTC)
+    const GENESIS_TIMESTAMP: u64 = 1735689600;
+    
+    // Create genesis header with fixed parameters
+    let mut header = BlockHeader::new(
+        vec![],  // No parent hashes
+        0,       // Block number 0
+        StreamType::StreamA,
+        4,       // K parameter
+    );
+    
+    // Override timestamp to be deterministic
+    header.timestamp = GENESIS_TIMESTAMP;
+    
+    // Create genesis block with no transactions
+    Block::new(header, vec![], vec![])
 }

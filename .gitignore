@@ -34,6 +34,7 @@ ENV/
 
 # IDE
 .vscode/
+.vs/
 .idea/
 *.swp
 *.swo
@@ -76,6 +77,7 @@ data/
 
 # IDE and editor files
 .vscode/
+.vs/
 .idea/
 *.swp
 *.swo
@@ -102,4 +104,27 @@ logs/
 *_PRIVATE*.md
 *_DEV*.md
 *_NOTES*.md
+PYRAX_*.md
+RENAME_*.md
 
+# Development scripts
+*.ps1
+*.sh
+*.cmd
+*.bat
+
+# POC and internal implementations
+mondoshawan_poc/
+mondoshawan_real/
+
+# Website files (not for public repo)
+mondoshawan-website/
+mondoshawan-website-legendary/
+
+# Desktop application (separate project)
+mondoshawan-desktop/
+
+# Test output files
+*.txt
+!README.txt
+!LICENSE.txt

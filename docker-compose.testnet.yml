@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  # Bootstrap Node 1
+  bootstrap1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mondoshawan-bootstrap1
+    ports:
+      - "8080:8080"  # P2P
+      - "8545:8545"  # RPC
+      - "9090:9090"  # Metrics
+    volumes:
+      - bootstrap1-data:/data
+    command: ["8080"]
+    restart: unless-stopped
+    networks:
+      - testnet
+
+  # Bootstrap Node 2
+  bootstrap2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mondoshawan-bootstrap2
+    ports:
+      - "8081:8080"  # P2P
+      - "8546:8545"  # RPC
+      - "9091:9090"  # Metrics
+    volumes:
+      - bootstrap2-data:/data
+    command: ["8080", "bootstrap1:8080"]
+    depends_on:
+      - bootstrap1
+    restart: unless-stopped
+    networks:
+      - testnet
+
+  # Bootstrap Node 3
+  bootstrap3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mondoshawan-bootstrap3
+    ports:
+      - "8082:8080"  # P2P
+      - "8547:8545"  # RPC
+      - "9092:9090"  # Metrics
+    volumes:
+      - bootstrap3-data:/data
+    command: ["8080", "bootstrap1:8080", "bootstrap2:8080"]
+    depends_on:
+      - bootstrap1
+      - bootstrap2
+    restart: unless-stopped
+    networks:
+      - testnet
+
+  # Prometheus (metrics collection)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: mondoshawan-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./grafana/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - testnet
+    restart: unless-stopped
+
+  # Grafana (metrics visualization)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: mondoshawan-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+    networks:
+      - testnet
+    restart: unless-stopped
+
+volumes:
+  bootstrap1-data:
+  bootstrap2-data:
+  bootstrap3-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  testnet:
+    driver: bridge

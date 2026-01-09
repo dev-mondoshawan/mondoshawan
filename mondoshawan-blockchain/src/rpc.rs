@@ -7,7 +7,7 @@ pub mod rate_limit;
 use crate::blockchain::{Blockchain, Block, Transaction};
 use crate::types::Address;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Value, json};
 use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -44,6 +44,7 @@ pub struct JsonRpcError {
 /// RPC server
 pub struct RpcServer {
     blockchain: Arc<RwLock<Blockchain>>,
+    network_manager: Option<Arc<crate::network::NetworkManager>>,
     rate_limiter: Option<Arc<rate_limit::RateLimiter>>,
     shard_manager: Option<Arc<crate::sharding::ShardManager>>,
     metrics: Option<crate::metrics::MetricsHandle>,
@@ -57,6 +58,8 @@ pub struct RpcServer {
     light_client: Option<Arc<tokio::sync::RwLock<crate::light_client::LightClient>>>,
     /// Security policy manager for opt-in behavior gating
     policy_manager: Option<Arc<tokio::sync::RwLock<crate::security::SecurityPolicyManager>>>,
+    /// Node registry for governance and longevity tracking
+    node_registry: Option<Arc<tokio::sync::RwLock<crate::governance::NodeRegistry>>>,
     /// API key for authentication (if None, authentication is disabled)
     api_key: Option<String>,
     /// Methods that don't require authentication (public methods)
@@ -76,6 +79,7 @@ impl RpcServer {
         
         Self {
             blockchain,
+            network_manager: None,
             rate_limiter: None,
             shard_manager: None,
             metrics: None,
@@ -84,6 +88,7 @@ impl RpcServer {
             forensic_analyzer: None,
             light_client: None,
             policy_manager: None,
+            node_registry: None,
             api_key: None,
             public_methods,
         }
@@ -112,6 +117,7 @@ impl RpcServer {
         
         Self {
             blockchain,
+            network_manager: None,
             rate_limiter: Some(Arc::new(rate_limit::RateLimiter::new(
                 max_tokens,
                 tokens_per_second,
@@ -123,6 +129,7 @@ impl RpcServer {
             forensic_analyzer: None,
             light_client: None,
             policy_manager: None,
+            node_registry: None,
             api_key: None,
             public_methods,
         }
@@ -155,6 +162,7 @@ impl RpcServer {
         
         Self {
             blockchain,
+            network_manager: None,
             rate_limiter: None,
             shard_manager: Some(shard_manager),
             metrics: None,
@@ -163,6 +171,7 @@ impl RpcServer {
             forensic_analyzer: None,
             light_client: None,
             policy_manager: None,
+            node_registry: None,
             api_key: None,
             public_methods,
         }
@@ -185,6 +194,7 @@ impl RpcServer {
         
         Self {
             blockchain,
+            network_manager: None,
             rate_limiter: Some(Arc::new(rate_limit::RateLimiter::new(
                 max_tokens,
                 tokens_per_second,
@@ -196,6 +206,7 @@ impl RpcServer {
             forensic_analyzer: None,
             light_client: None,
             policy_manager: None,
+            node_registry: None,
             api_key: None,
             public_methods,
         }
@@ -387,6 +398,14 @@ impl RpcServer {
             "mds_evaluateTransactionPolicy" => self.mds_evaluate_transaction_policy(request.params).await,
             "mds_addTestBlock" => self.mds_add_test_block(request.params).await,
             "mds_createTestTransaction" => self.mds_create_test_transaction(request.params).await,
+            "mds_getNodeRegistry" => self.mds_get_node_registry().await,
+            "mds_getNodeLongevity" => self.mds_get_node_longevity(request.params).await,
+            "mds_registerNode" => self.mds_register_node(request.params).await,
+            "mds_startMining" => self.mds_start_mining(request.params).await,
+            "mds_stopMining" => self.mds_stop_mining(request.params).await,
+            "mds_getMiningStatus" => self.mds_get_mining_status().await,
+            "mds_getNodeStatus" => self.mds_get_node_status().await,
+            "mds_sendRawTransaction" => self.mds_send_raw_transaction(request.params).await,
             _ => Err(JsonRpcError {
                 code: -32601,
                 message: format!("Method not found: {}", request.method),
@@ -598,9 +617,13 @@ impl RpcServer {
 
     /// net_peerCount - Get connected peer count
     async fn net_peer_count(&self) -> Result<Value, JsonRpcError> {
-        // This would need access to network manager
-        // For now, return 0
-        Ok(Value::String("0x0".to_string()))
+        if let Some(network_mgr) = &self.network_manager {
+            let peer_count = network_mgr.peer_count().await;
+            Ok(Value::String(format!("0x{:x}", peer_count)))
+        } else {
+            // Fallback if network manager not set
+            Ok(Value::String("0x0".to_string()))
+        }
     }
 
     /// mds_getDagStats - Get GhostDAG statistics
@@ -907,6 +930,201 @@ impl RpcServer {
     /// Set light client for stateless mode
     pub fn set_light_client(&mut self, light_client: Arc<tokio::sync::RwLock<crate::light_client::LightClient>>) {
         self.light_client = Some(light_client);
+    }
+    
+    /// Set network manager for peer info
+    pub fn set_network_manager(&mut self, network_manager: Arc<crate::network::NetworkManager>) {
+        self.network_manager = Some(network_manager);
+    }
+    
+    /// Start TriStream mining via RPC
+    async fn mds_start_mining(&self, _params: Option<Value>) -> Result<Value, JsonRpcError> {
+        if let Some(mining_mgr) = &self.mining_manager {
+            mining_mgr.start_mining().await;
+            Ok(json!({
+                "status": "started",
+            }))
+        } else {
+            Err(JsonRpcError {
+                code: -32603,
+                message: "Mining manager not available".to_string(),
+                data: None,
+            })
+        }
+    }
+    
+    /// Stop TriStream mining via RPC
+    async fn mds_stop_mining(&self, _params: Option<Value>) -> Result<Value, JsonRpcError> {
+        if let Some(mining_mgr) = &self.mining_manager {
+            mining_mgr.stop_mining().await;
+            Ok(json!({
+                "status": "stopped",
+            }))
+        } else {
+            Err(JsonRpcError {
+                code: -32603,
+                message: "Mining manager not available".to_string(),
+                data: None,
+            })
+        }
+    }
+    
+    /// Get mining status and basic TriStream configuration
+    async fn mds_get_mining_status(&self) -> Result<Value, JsonRpcError> {
+        if let Some(mining_mgr) = &self.mining_manager {
+            let is_mining = *mining_mgr.is_mining().read().await;
+            let pending_txs = mining_mgr.pending_count().await;
+            
+            // Use constants from mining module for stream configuration
+            let stream_a_block_time_ms = crate::mining::STREAM_A_BLOCK_TIME.as_millis();
+            let stream_b_block_time_ms = crate::mining::STREAM_B_BLOCK_TIME.as_millis();
+            let stream_c_block_time_ms = crate::mining::STREAM_C_BLOCK_TIME.as_millis();
+            
+            Ok(json!({
+                "is_mining": is_mining,
+                "pending_txs": pending_txs,
+                "streams": {
+                    "streamA": {
+                        "block_time_ms": stream_a_block_time_ms,
+                        "max_txs": crate::mining::STREAM_A_MAX_TXS,
+                        "reward": format!("0x{:x}", crate::mining::STREAM_A_REWARD),
+                    },
+                    "streamB": {
+                        "block_time_ms": stream_b_block_time_ms,
+                        "max_txs": crate::mining::STREAM_B_MAX_TXS,
+                        "reward": format!("0x{:x}", crate::mining::STREAM_B_REWARD),
+                    },
+                    "streamC": {
+                        "block_time_ms": stream_c_block_time_ms,
+                        "max_txs": crate::mining::STREAM_C_MAX_TXS,
+                        "reward": format!("0x{:x}", crate::mining::STREAM_C_REWARD),
+                    },
+                }
+            }))
+        } else {
+            Err(JsonRpcError {
+                code: -32603,
+                message: "Mining manager not available".to_string(),
+                data: None,
+            })
+        }
+    }
+    
+    /// Send a signed transaction to the mining pool
+    async fn mds_send_raw_transaction(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+
+        // Expect a single parameter: the transaction object
+        let tx_value = params.as_array()
+            .and_then(|arr| arr.get(0))
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing transaction parameter".to_string(),
+                data: None,
+            })?;
+
+        // Deserialize the transaction
+        let tx: crate::blockchain::Transaction = serde_json::from_value(tx_value.clone())
+            .map_err(|e| JsonRpcError {
+                code: -32602,
+                message: format!("Invalid transaction format: {}", e),
+                data: None,
+            })?;
+
+        // Verify signature
+        if !tx.verify_signature() {
+            return Err(JsonRpcError {
+                code: -32000,
+                message: "Invalid transaction signature".to_string(),
+                data: None,
+            });
+        }
+
+        // Verify nonce (check against blockchain state)
+        let blockchain = self.blockchain.read().await;
+        let from_addr = tx.from;  // Copy the address
+        let current_nonce = blockchain.get_nonce(from_addr);
+        drop(blockchain);
+
+        if tx.nonce != current_nonce {
+            return Err(JsonRpcError {
+                code: -32000,
+                message: format!("Invalid nonce: expected {}, got {}", current_nonce, tx.nonce),
+                data: None,
+            });
+        }
+
+        // Verify balance (sender must have enough for value + fee)
+        let blockchain = self.blockchain.read().await;
+        let balance = blockchain.get_balance(from_addr);
+        drop(blockchain);
+
+        let total_cost = tx.value.checked_add(tx.fee).ok_or_else(|| JsonRpcError {
+            code: -32000,
+            message: "Transaction value + fee overflow".to_string(),
+            data: None,
+        })?;
+
+        if balance < total_cost {
+            return Err(JsonRpcError {
+                code: -32000,
+                message: format!("Insufficient balance: have {}, need {}", balance, total_cost),
+                data: None,
+            });
+        }
+
+        // Submit to mining manager
+        if let Some(mining_mgr) = &self.mining_manager {
+            mining_mgr.add_transaction(tx.clone()).await
+                .map_err(|e| JsonRpcError {
+                    code: -32603,
+                    message: format!("Failed to add transaction: {}", e),
+                    data: None,
+                })?;
+        } else {
+            return Err(JsonRpcError {
+                code: -32603,
+                message: "Mining manager not available".to_string(),
+                data: None,
+            });
+        }
+
+        // Return the transaction hash
+        Ok(json!({ "hash": format!("0x{}", hex::encode(tx.hash)) }))
+    }
+
+    /// Get aggregated node status for desktop and monitoring clients
+    async fn mds_get_node_status(&self) -> Result<Value, JsonRpcError> {
+        // Blockchain stats
+        let blockchain = self.blockchain.read().await;
+        let latest_block = blockchain.latest_block_number();
+        let tx_count = blockchain.transaction_count();
+        drop(blockchain);
+        
+        // Peer count
+        let peer_count = if let Some(network_mgr) = &self.network_manager {
+            network_mgr.peer_count().await
+        } else {
+            0
+        };
+        
+        // Mining status
+        let is_mining = if let Some(mining_mgr) = &self.mining_manager {
+            *mining_mgr.is_mining().read().await
+        } else {
+            false
+        };
+        
+        Ok(json!({
+            "height": latest_block,
+            "tx_count": tx_count,
+            "peer_count": peer_count,
+            "is_mining": is_mining,
+        }))
     }
     
     /// mds_getFairnessMetrics - Get fairness metrics for a block
@@ -2516,6 +2734,152 @@ impl RpcServer {
             "nonce": format!("0x{:x}", tx.nonce),
             "note": "This is an unsigned transaction. For production, transactions must be signed."
         }))
+    }
+    
+    /// mds_getNodeRegistry - Get node registry statistics
+    async fn mds_get_node_registry(&self) -> Result<Value, JsonRpcError> {
+        let registry = self.node_registry.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Node registry not available".to_string(),
+                data: None,
+            })?;
+        
+        let registry = registry.read().await;
+        let total_nodes = registry.total_nodes();
+        let active_nodes = registry.active_nodes();
+        
+        Ok(json!({
+            "total_nodes": total_nodes,
+            "active_nodes": active_nodes,
+            "nodes": registry.get_all_nodes().iter().map(|node| {
+                json!({
+                    "public_key": hex::encode(&node.public_key),
+                    "ip_address": node.ip_address.map(|ip| ip.to_string()),
+                    "created_at": node.created_at,
+                })
+            }).collect::<Vec<_>>()
+        }))
+    }
+    
+    /// mds_getNodeLongevity - Get longevity stats for a node
+    async fn mds_get_node_longevity(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let registry = self.node_registry.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Node registry not available".to_string(),
+                data: None,
+            })?;
+        
+        let params_array = params.and_then(|p| p.as_array().cloned())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Invalid parameters".to_string(),
+                data: None,
+            })?;
+        
+        let public_key_str = params_array.get(0)
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing public_key parameter".to_string(),
+                data: None,
+            })?;
+        
+        let public_key_bytes = hex::decode(public_key_str.strip_prefix("0x").unwrap_or(public_key_str))
+            .map_err(|_| JsonRpcError {
+                code: -32602,
+                message: "Invalid public_key format".to_string(),
+                data: None,
+            })?;
+        
+        if public_key_bytes.len() != 32 {
+            return Err(JsonRpcError {
+                code: -32602,
+                message: "Invalid public_key length".to_string(),
+                data: None,
+            });
+        }
+        
+        let mut public_key = [0u8; 32];
+        public_key.copy_from_slice(&public_key_bytes);
+        
+        let registry = registry.read().await;
+        let all_nodes = registry.get_all_nodes();
+        let node_identity = all_nodes
+            .iter()
+            .find(|node| node.public_key == public_key)
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Node not found".to_string(),
+                data: None,
+            })?;
+        
+        let stats = registry.get_node_stats(node_identity)
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Node stats not found".to_string(),
+                data: None,
+            })?;
+        
+        let network_age = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() - stats.network_age_at_join;
+        let network_age_days = network_age / 86400;
+        
+        Ok(json!({
+            "public_key": hex::encode(&node_identity.public_key),
+            "active_days": stats.active_days,
+            "blocks_mined": stats.blocks_mined,
+            "uptime_index": stats.uptime_index,
+            "last_seen": stats.last_seen,
+            "network_age_at_join": stats.network_age_at_join,
+            "consecutive_offline_days": stats.consecutive_offline_days,
+            "longevity_weight": stats.calculate_weight(network_age_days),
+            "activity_snapshots_count": stats.activity_snapshots.len(),
+        }))
+    }
+    
+    /// mds_registerNode - Register a new node
+    async fn mds_register_node(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let registry = self.node_registry.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Node registry not available".to_string(),
+                data: None,
+            })?;
+        
+        // For now, create a placeholder node identity
+        // In production, this would parse the full node identity from params
+        let public_key = [1u8; 32]; // Placeholder
+        let private_key = [2u8; 32]; // Placeholder
+        
+        let hardware_fingerprint = crate::governance::HardwareFingerprint::generate(&private_key);
+        let node_identity = crate::governance::NodeIdentity {
+            public_key,
+            ip_address: None,
+            hardware_fingerprint,
+            zk_uniqueness_proof: None,
+            created_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        };
+        
+        let mut registry = registry.write().await;
+        match registry.register_node(node_identity.clone()) {
+            Ok(_) => Ok(json!({
+                "success": true,
+                "public_key": hex::encode(&node_identity.public_key),
+                "message": "Node registered successfully"
+            })),
+            Err(e) => Err(JsonRpcError {
+                code: -32603,
+                message: format!("Failed to register node: {}", e),
+                data: None,
+            }),
+        }
     }
 }
 

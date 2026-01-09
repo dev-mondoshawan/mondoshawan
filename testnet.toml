@@ -1,0 +1,74 @@
+# Mondoshawan Testnet Configuration
+# Copy this file and modify as needed for your testnet node
+
+[network]
+# P2P network port
+port = 8080
+
+# JSON-RPC API port
+rpc_port = 8545
+
+# Maximum number of peers to connect to
+max_peers = 50
+
+# Bootstrap peers (initial nodes to connect to)
+# Add your testnet bootstrap node addresses here
+bootstrap_peers = [
+    # "127.0.0.1:8080",  # Example: local bootstrap node
+    # "YOUR_IP:8080",     # Example: remote bootstrap node
+]
+
+[mining]
+# Miner address (receives block rewards)
+# Generate your own address or use default
+miner_address = "0x0101010101010101010101010101010101010101"
+
+# Enable mining streams
+enable_stream_a = true  # ASIC mining (Blake3, 10s blocks)
+enable_stream_b = true  # CPU/GPU mining (KHeavyHash, 1s blocks)
+enable_stream_c = true  # ZK proofs (100ms blocks)
+
+[blockchain]
+# Testnet chain ID (MSHW in hex)
+chain_id = 0x4D534857
+
+# Data directory for blockchain storage
+data_dir = "./testnet-data"
+
+# Maximum block size (bytes)
+max_block_size = 10_000_000  # 10MB
+
+# Maximum transaction pool size
+max_tx_pool_size = 10_000
+
+[features]
+# Enable sharding
+enable_sharding = true
+shard_count = 10
+
+# Enable Verkle trees (optional, for stateless validation)
+enable_verkle = false
+
+# Enable EVM (smart contracts)
+enable_evm = true
+
+[api]
+# RPC rate limit (requests per second)
+rate_limit = 100
+
+# Enable CORS (for web explorer)
+cors_enabled = true
+cors_origins = ["*"]  # Restrict in production
+
+[metrics]
+# Enable Prometheus metrics
+enabled = true
+port = 9090
+
+[logging]
+# Log level: trace, debug, info, warn, error
+level = "info"
+
+# Log to file
+log_to_file = true
+log_file = "./testnet.log"

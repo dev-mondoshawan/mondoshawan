@@ -29,12 +29,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     };
     
-    // Allow port override via command line args
+    // Parse command line arguments
+    // Usage: node [p2p_port] [rpc_port] [--data-dir <path>] [peer_addr1] [peer_addr2] ...
     let args: Vec<String> = std::env::args().collect();
+    let mut peer_start_idx = 3;
+    
+    // Parse P2P port
     if args.len() > 1 {
         if let Ok(port) = args[1].parse::<u16>() {
             config.port = port;
-            println!("Using port: {}", port);
+            println!("Using P2P port: {}", port);
+        }
+    }
+    
+    // Parse RPC port
+    if args.len() > 2 {
+        if let Ok(rpc_port) = args[2].parse::<u16>() {
+            config.rpc_port = rpc_port;
+            println!("Using RPC port: {}", rpc_port);
+        }
+    }
+    
+    // Parse --data-dir flag
+    if args.len() > 3 && args[3] == "--data-dir" {
+        if args.len() > 4 {
+            config.data_dir = args[4].clone();
+            println!("Using data directory: {}", config.data_dir);
+            peer_start_idx = 5;
+        } else {
+            eprintln!("Error: --data-dir requires a path argument");
+            std::process::exit(1);
         }
     }
     
@@ -44,12 +68,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     node.start().await?;
     
     // Connect to peers if provided
-    for arg in args.iter().skip(2) {
+    println!("🔍 Checking for peer addresses starting at index {}...", peer_start_idx);
+    println!("🔍 Total args: {}", args.len());
+    
+    for (idx, arg) in args.iter().enumerate().skip(peer_start_idx) {
+        println!("🔍 Arg[{}]: {}", idx, arg);
         if let Ok(peer_addr) = arg.parse::<std::net::SocketAddr>() {
             println!("🔗 Connecting to peer: {}", peer_addr);
             if let Err(e) = node.connect_peer(peer_addr).await {
                 eprintln!("⚠️  Failed to connect to {}: {}", peer_addr, e);
             }
+        } else {
+            println!("⚠️  Could not parse '{}' as socket address", arg);
         }
     }
     
@@ -106,18 +136,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let stream_b_blocks = Arc::new(AtomicU64::new(0));
     let stream_c_blocks = Arc::new(AtomicU64::new(0));
     
-    // Start HTTP API server
-    let blockchain_api = node.blockchain();
-    let mining_manager_api = node.mining_manager();
-    let stream_a_count = stream_a_blocks.clone();
-    let stream_b_count = stream_b_blocks.clone();
-    let stream_c_count = stream_c_blocks.clone();
+    // Start HTTP API server (disabled for multi-node - use RPC instead)
+    // let blockchain_api = node.blockchain();
+    // let mining_manager_api = node.mining_manager();
+    // let stream_a_count = stream_a_blocks.clone();
+    // let stream_b_count = stream_b_blocks.clone();
+    // let stream_c_count = stream_c_blocks.clone();
+    // 
+    // tokio::spawn(async move {
+    //     start_api_server(blockchain_api, mining_manager_api, stream_a_count, stream_b_count, stream_c_count).await;
+    // });
     
-    tokio::spawn(async move {
-        start_api_server(blockchain_api, mining_manager_api, stream_a_count, stream_b_count, stream_c_count).await;
-    });
-    
-    println!("🌐 HTTP API server started on http://localhost:8081");
+    // println!("🌐 HTTP API server started on http://localhost:8081");
+    println!("🔌 RPC API available on http://127.0.0.1:{}", config.rpc_port);
     println!("📊 Web Dashboard: Open mondoshawan-explorer-frontend/index.html in browser\n");
     sleep(Duration::from_secs(1)).await;
     
@@ -187,7 +218,7 @@ fn show_dashboard(
     println!("║     Avg Block Size: {:<4} bytes | Avg Txs/Block: {:.1}              ║",
              dag_stats.avg_block_size, dag_stats.avg_txs_per_block);
     println!("╠═══════════════════════════════════════════════════════════════════════════════╣");
-    println!("║  🌐 API: http://localhost:8081/api/stats                                      ║");
+    println!("║  🔌 Press Ctrl+C to stop mining                                                 ║");
     println!("║  📊 Web Dashboard: Open mondoshawan-explorer-frontend/index.html in browser          ║");
     println!("╚═══════════════════════════════════════════════════════════════════════════════╝");
 }

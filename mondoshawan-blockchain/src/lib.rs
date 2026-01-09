@@ -8,6 +8,7 @@ pub mod config;
 pub mod consensus;
 pub mod error;
 pub mod evm;
+pub mod governance;
 pub mod metrics;
 pub mod mining;
 pub mod network;

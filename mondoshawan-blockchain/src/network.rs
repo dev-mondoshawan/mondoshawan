@@ -10,10 +10,11 @@ use crate::blockchain::{Blockchain, Block, Transaction, PublicKey};
 use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, Mutex};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Maximum network message size (10MB - DoS protection)
 pub const MAX_MESSAGE_SIZE: usize = 10 * 1024 * 1024;
@@ -34,6 +35,8 @@ pub struct AuthenticatedMessage {
 /// Network message types
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum NetworkMessage {
+    /// Handshake - announce listen address
+    Handshake { listen_addr: String },
     /// Announce a new block
     NewBlock { block: Block },
     /// Announce a new block from a specific shard
@@ -74,6 +77,8 @@ pub struct NetworkManager {
     session_keys: Arc<RwLock<std::collections::HashMap<SocketAddr, crate::pqc::SessionKey>>>,
     /// Shard manager for shard-aware block/transaction propagation
     shard_manager: Option<Arc<crate::sharding::ShardManager>>,
+    /// Active peer connections for broadcasting (peer_addr -> stream)
+    peer_connections: Arc<Mutex<HashMap<SocketAddr, Arc<Mutex<TcpStream>>>>>,
 }
 
 impl NetworkManager {
@@ -89,6 +94,7 @@ impl NetworkManager {
             kyber_keys: None,
             session_keys: Arc::new(RwLock::new(std::collections::HashMap::new())),
             shard_manager: None,
+            peer_connections: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -116,6 +122,7 @@ impl NetworkManager {
             kyber_keys,
             session_keys: Arc::new(RwLock::new(std::collections::HashMap::new())),
             shard_manager: None,
+            peer_connections: Arc::new(Mutex::new(HashMap::new())),
         }
     }
     
@@ -261,22 +268,25 @@ impl NetworkManager {
         let peers = self.peers.clone();
         let blockchain = self.blockchain.clone();
         let is_running = self.is_running.clone();
+        let connections = self.peer_connections.clone();
         
         // Accept incoming connections
         tokio::spawn(async move {
             while *is_running.read().await {
                 match listener.accept().await {
                     Ok((stream, addr)) => {
-                        println!("📥 New peer connected: {}", addr);
-                        peers.write().await.insert(addr);
+                        println!("📥 New peer connected from: {} (ephemeral port, not added to peers)", addr);
+                        // Note: We don't add the ephemeral address to peers.
+                        // Only explicit connect_peer() calls add peers for broadcasting.
                         
                         let blockchain_clone = blockchain.clone();
                         let peers_clone = peers.clone();
                         let is_running_clone = is_running.clone();
+                        let connections_clone = connections.clone();
                         
                         // Handle peer connection
                         tokio::spawn(async move {
-                            handle_peer(stream, addr, blockchain_clone, peers_clone, is_running_clone).await;
+                            handle_peer(stream, addr, blockchain_clone, peers_clone, is_running_clone, connections_clone).await;
                         });
                     }
                     Err(e) => {
@@ -296,24 +306,65 @@ impl NetworkManager {
 
     /// Connect to a peer
     pub async fn connect_peer(&self, addr: SocketAddr) -> crate::error::BlockchainResult<()> {
-        println!("🔗 Connecting to peer: {}", addr);
+        println!("🔗 [CONNECT] Attempting to connect to peer: {}", addr);
         
-        let stream = TcpStream::connect(addr)
-            .await
-            .map_err(|e| crate::error::BlockchainError::Network(
-                format!("Failed to connect to {}: {}", addr, e)
-            ))?;
+        // Also log to file
+        let log_msg = format!("[CONNECT] Attempting to connect to peer: {}\n", addr);
+        let _ = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("d:\\Pyrax\\network-debug.log")
+            .and_then(|mut f| std::io::Write::write_all(&mut f, log_msg.as_bytes()));
         
-        println!("✅ Connected to peer: {}", addr);
+        // Try to connect with retry logic
+        let mut attempts = 0;
+        const MAX_ATTEMPTS: u32 = 3;
+        const RETRY_DELAY_MS: u64 = 2000;
+        
+        let stream = loop {
+            match TcpStream::connect(addr).await {
+                Ok(s) => break s,
+                Err(e) => {
+                    attempts += 1;
+                    if attempts >= MAX_ATTEMPTS {
+                        let err_msg = format!("❌ [CONNECT] Failed to connect to {} after {} attempts: {}", addr, attempts, e);
+                        eprintln!("{}", err_msg);
+                        let _ = std::fs::OpenOptions::new()
+                            .create(true)
+                            .append(true)
+                            .open("d:\\Pyrax\\network-debug.log")
+                            .and_then(|mut f| std::io::Write::write_all(&mut f, format!("{}\n", err_msg).as_bytes()));
+                        return Err(crate::error::BlockchainError::Network(
+                            format!("Failed to connect to {}: {}", addr, e)
+                        ));
+                    }
+                    println!("⚠️  [CONNECT] Attempt {}/{} failed, retrying in {}ms...", attempts, MAX_ATTEMPTS, RETRY_DELAY_MS);
+                    tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_DELAY_MS)).await;
+                }
+            }
+        };
+        
+        let success_msg = format!("✅ [CONNECT] TCP connection established to: {} (attempt {})", addr, attempts + 1);
+        println!("{}", success_msg);
+        let _ = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("d:\\Pyrax\\network-debug.log")
+            .and_then(|mut f| std::io::Write::write_all(&mut f, format!("{}\n", success_msg).as_bytes()));
+        
         self.peers.write().await.insert(addr);
+        println!("✅ [CONNECT] Added {} to peers list", addr);
         
         let blockchain = self.blockchain.clone();
         let peers = self.peers.clone();
         let is_running = self.is_running.clone();
+        let connections = self.peer_connections.clone();
+        
+        println!("🔄 [CONNECT] Spawning handle_peer for {}", addr);
         
         // Handle peer connection
         tokio::spawn(async move {
-            handle_peer(stream, addr, blockchain, peers, is_running).await;
+            handle_peer(stream, addr, blockchain, peers, is_running, connections).await;
         });
         
         Ok(())
@@ -322,7 +373,11 @@ impl NetworkManager {
     /// Broadcast a block to all peers
     pub async fn broadcast_block(&self, block: &Block) -> crate::error::BlockchainResult<()> {
         let peers = self.peers.read().await;
+        println!("📡 [BROADCAST] Starting broadcast of block #{}, peer count: {}", 
+            block.header.block_number, peers.len());
+        
         if peers.is_empty() {
+            println!("⚠️  [BROADCAST] No peers available, skipping broadcast");
             return Ok(());
         }
         
@@ -356,8 +411,35 @@ impl NetworkManager {
         }
         
         for &peer_addr in peers.iter() {
-            if let Err(e) = send_to_peer(peer_addr, &data).await {
-                eprintln!("⚠️  Failed to send block to {}: {}", peer_addr, e);
+            println!("📤 [BROADCAST] Attempting to send block #{} to peer {}", block.header.block_number, peer_addr);
+            
+            // Try to use stored connection first
+            let connections_map = self.peer_connections.lock().await;
+            println!("🔍 [BROADCAST] Checking stored connections, total: {}", connections_map.len());
+            
+            if let Some(stream_arc) = connections_map.get(&peer_addr) {
+                println!("✅ [BROADCAST] Found stored connection for {}", peer_addr);
+                let mut stream = stream_arc.lock().await;
+                
+                // Send via stored connection
+                match stream.write_u32(data.len() as u32).await {
+                    Ok(_) => {
+                        match stream.write_all(&data).await {
+                            Ok(_) => {
+                                println!("✅ Block #{} sent to {} via stored connection", block.header.block_number, peer_addr);
+                                continue;
+                            }
+                            Err(e) => {
+                                eprintln!("⚠️  Failed to send block data to {}: {}", peer_addr, e);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("⚠️  Failed to send block length to {}: {}", peer_addr, e);
+                    }
+                }
+            } else {
+                eprintln!("⚠️  No stored connection for peer {}, skipping", peer_addr);
             }
         }
         
@@ -438,17 +520,44 @@ async fn handle_peer(
     blockchain: Arc<RwLock<Blockchain>>,
     peers: Arc<RwLock<HashSet<SocketAddr>>>,
     is_running: Arc<RwLock<bool>>,
+    connections: Arc<Mutex<HashMap<SocketAddr, Arc<Mutex<TcpStream>>>>>,
 ) {
+    println!("🎯 [HANDLER] Started for peer: {}", addr);
     let mut buffer = vec![0u8; 1024 * 1024]; // 1MB buffer
     
+    // Store this connection for broadcasting (use the peer's listen address if known)
+    // For now, we store using the provided addr
+    let stream_arc = Arc::new(Mutex::new(stream));
+    connections.lock().await.insert(addr, stream_arc.clone());
+    println!("✅ [HANDLER] Stored connection for peer: {}", addr);
+    
+    // Log connection pool status
+    let conn_count = connections.lock().await.len();
+    println!("📊 [HANDLER] Total stored connections: {}", conn_count);
+    
+    let mut stream = stream_arc.lock().await;
+    
+    // Set read timeout to prevent blocking forever
+    // This allows the loop to check is_running periodically
+    let timeout = std::time::Duration::from_secs(1);
+    
     while *is_running.read().await {
-        // Read length prefix
-        let len = match stream.read_u32().await {
-            Ok(len) => len as usize,
-            Err(_) => {
+        // Use timeout on read to periodically check is_running
+        let len_result = tokio::time::timeout(
+            timeout,
+            stream.read_u32()
+        ).await;
+        
+        let len = match len_result {
+            Ok(Ok(len)) => len as usize,
+            Ok(Err(_)) => {
                 println!("📤 Peer disconnected: {}", addr);
                 peers.write().await.remove(&addr);
                 break;
+            }
+            Err(_) => {
+                // Timeout - connection still alive, just no data
+                continue;
             }
         };
         
@@ -508,11 +617,26 @@ async fn process_message(
     from_addr: SocketAddr,
 ) -> crate::error::BlockchainResult<()> {
     match message {
+        NetworkMessage::Handshake { listen_addr } => {
+            println!("🤝 Received handshake from {}, listen address: {}", from_addr, listen_addr);
+            // Parse listen address and add to peers
+            if let Ok(listen_sock_addr) = listen_addr.parse::<SocketAddr>() {
+                peers.write().await.insert(listen_sock_addr);
+                println!("✅ Added peer listen address: {}", listen_sock_addr);
+            } else {
+                eprintln!("⚠️  Invalid listen address in handshake: {}", listen_addr);
+            }
+        }
         NetworkMessage::NewBlock { block } => {
             println!("📦 Received block #{} from {}", block.header.block_number, from_addr);
             let mut bc = blockchain.write().await;
-            if let Err(e) = bc.add_block(block) {
-                eprintln!("⚠️  Failed to add block: {}", e);
+            match bc.add_block(block.clone()) {
+                Ok(_) => {
+                    println!("✅ Successfully added block #{} from peer", block.header.block_number);
+                }
+                Err(e) => {
+                    eprintln!("❌ Failed to add block #{}: {}", block.header.block_number, e);
+                }
             }
         }
         NetworkMessage::NewShardBlock { block, shard_id } => {
