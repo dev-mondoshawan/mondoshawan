@@ -3,6 +3,7 @@
 //! High-performance sharded blockchain with TriStream mining architecture
 //! and GhostDAG consensus.
 
+pub mod account_abstraction;
 pub mod blockchain;
 pub mod config;
 pub mod consensus;
@@ -14,6 +15,7 @@ pub mod mining;
 pub mod network;
 pub mod node;
 pub mod rpc;
+pub mod reputation;
 pub mod security;
 pub mod sharding;
 pub mod storage;

@@ -11,7 +11,7 @@
 - [x] No API keys or tokens in code
 - [x] No passwords or credentials
 - [x] No private keys
-- [x] No personal information (David Cooper removed)
+- [x] No personal information (all personal data removed)
 - [x] No internal IPs or domains
 
 ### Branding & References

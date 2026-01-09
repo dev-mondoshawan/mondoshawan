@@ -398,6 +398,39 @@ async function displayTransaction(tx) {
         `;
     }
     
+    // Check for time-lock and sponsor info
+    let timeLockHtml = '';
+    if (tx.executeAtBlock || tx.executeAtTimestamp) {
+        const currentBlock = parseInt(await rpcCall('eth_blockNumber').catch(() => '0x0'), 16) || 0;
+        const currentTimestamp = Math.floor(Date.now() / 1000);
+        const executeAtBlock = tx.executeAtBlock ? parseInt(tx.executeAtBlock, 16) : null;
+        const executeAtTimestamp = tx.executeAtTimestamp ? parseInt(tx.executeAtTimestamp, 16) : null;
+        const isReady = (!executeAtBlock || currentBlock >= executeAtBlock) && 
+                       (!executeAtTimestamp || currentTimestamp >= executeAtTimestamp);
+        
+        timeLockHtml = `
+            <div class="time-lock-section" style="margin-top: 1rem; padding: 1rem; background: #1e293b; border-radius: 8px;">
+                <h4>⏰ Time-Locked Transaction</h4>
+                ${executeAtBlock ? `<p><strong>Execute At Block:</strong> ${executeAtBlock} (Current: ${currentBlock})</p>` : ''}
+                ${executeAtTimestamp ? `<p><strong>Execute At:</strong> ${new Date(executeAtTimestamp * 1000).toLocaleString()}</p>` : ''}
+                <p><strong>Status:</strong> <span class="status-${isReady ? 'ready' : 'pending'}">${isReady ? '✅ Ready' : '⏳ Pending'}</span></p>
+            </div>
+        `;
+    }
+    
+    let sponsorHtml = '';
+    if (tx.sponsor || tx.isGasless) {
+        const sponsor = tx.sponsor || 'N/A';
+        sponsorHtml = `
+            <div class="sponsor-section" style="margin-top: 1rem; padding: 1rem; background: #1e293b; border-radius: 8px;">
+                <h4>💳 Gasless Transaction</h4>
+                <p><strong>Sponsor:</strong> <code>${sponsor}</code></p>
+                <p><strong>Fee Paid By:</strong> Sponsor (${sponsor.substring(0, 10)}...)</p>
+                <p style="color: #10b981; font-size: 0.9rem;">✨ User doesn't need MSHW for gas</p>
+            </div>
+        `;
+    }
+    
     addressInfo.innerHTML = `
         <h3>Transaction Details</h3>
         <p><strong>Hash:</strong> <code>${txHash}</code></p>
@@ -407,6 +440,8 @@ async function displayTransaction(tx) {
         <p><strong>Fee:</strong> ${tx.fee || 'N/A'}</p>
         <p><strong>Status:</strong> ${tx.status || 'N/A'}</p>
         <p><strong>Block:</strong> ${tx.block_number || 'Pending'}</p>
+        ${timeLockHtml}
+        ${sponsorHtml}
         ${shardHtml}
         ${riskHtml}
     `;
@@ -449,6 +484,18 @@ async function displayAddress(address) {
         console.error('Error loading risk score:', error);
     }
     
+    // Load reputation score
+    let reputation = null;
+    let reputationFactors = null;
+    try {
+        reputation = await rpcCall('mds_getReputation', [addressStr]).catch(() => null);
+        if (reputation) {
+            reputationFactors = await rpcCall('mds_getReputationFactors', [addressStr]).catch(() => null);
+        }
+    } catch (error) {
+        console.error('Error loading reputation:', error);
+    }
+    
     let riskHtml = '';
     if (riskScore) {
         const riskPercent = (riskScore.score * 100).toFixed(1);
@@ -465,6 +512,31 @@ async function displayAddress(address) {
                     <div class="risk-labels">
                         <strong>Risk Labels:</strong>
                         ${riskScore.labels.map(label => `<span class="risk-label-badge">${formatRiskLabel(label)}</span>`).join('')}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+    
+    let reputationHtml = '';
+    if (reputation) {
+        const repValue = reputation.reputation || 0;
+        const repClass = repValue >= 70 ? 'high' : repValue >= 40 ? 'medium' : 'low';
+        const repLabel = repValue >= 70 ? '⭐ High' : repValue >= 40 ? '✓ Medium' : '⚠ Low';
+        
+        reputationHtml = `
+            <div class="reputation-section" style="margin-top: 1rem; padding: 1rem; background: #1e293b; border-radius: 8px;">
+                <h4>⭐ Reputation Score</h4>
+                <div class="reputation-score ${repClass}" style="font-size: 1.5rem; font-weight: bold; margin: 0.5rem 0;">
+                    ${repValue.toFixed(1)}/100 <span style="font-size: 1rem; color: #64748b;">(${repLabel})</span>
+                </div>
+                ${reputationFactors && reputationFactors.factors ? `
+                    <div style="margin-top: 1rem; font-size: 0.9rem; color: #94a3b8;">
+                        <p><strong>Successful Txs:</strong> ${reputationFactors.factors.successfulTxs || 0}</p>
+                        <p><strong>Failed Txs:</strong> ${reputationFactors.factors.failedTxs || 0}</p>
+                        ${reputationFactors.factors.blocksMined > 0 ? `<p><strong>Blocks Mined:</strong> ${reputationFactors.factors.blocksMined}</p>` : ''}
+                        ${reputationFactors.factors.nodeLongevity ? `<p><strong>Node Longevity:</strong> ${(reputationFactors.factors.nodeLongevity * 100).toFixed(2)}%</p>` : ''}
+                        ${reputationFactors.factors.suspiciousActivities > 0 ? `<p style="color: #ef4444;"><strong>Suspicious Activities:</strong> ${reputationFactors.factors.suspiciousActivities}</p>` : ''}
                     </div>
                 ` : ''}
             </div>
@@ -488,6 +560,7 @@ async function displayAddress(address) {
         <p><strong>Transactions:</strong> ${address.transaction_count || 'N/A'}</p>
         <p><strong>First Seen:</strong> ${address.first_seen ? new Date(address.first_seen * 1000).toLocaleString() : 'N/A'}</p>
         <p><strong>Last Seen:</strong> ${address.last_seen ? new Date(address.last_seen * 1000).toLocaleString() : 'N/A'}</p>
+        ${reputationHtml}
         ${shardHtml}
         ${riskHtml}
     `;

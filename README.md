@@ -97,6 +97,11 @@ python -m http.server 3000
 
 ## 📊 Features
 
+### Quick Wins (New!)
+- ✅ **Time-Locked Transactions** - Native scheduled execution (no oracles needed)
+- ✅ **Gasless Transactions** - Sponsored transactions (dApps pay gas for users)
+- ✅ **Reputation System** - Trust scores based on behavior and Node Longevity
+
 ### Performance
 - **Base Throughput**: ~16,000 TPS per shard (combined streams)
 - **Sharded Throughput**: 160,000+ TPS (10 shards), up to 1.6M+ TPS (100 shards)

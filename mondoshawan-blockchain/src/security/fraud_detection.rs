@@ -151,6 +151,9 @@ mod tests {
             public_key: vec![],
             signature: vec![],
             pq_signature: None,
+            execute_at_block: None,
+            execute_at_timestamp: None,
+            sponsor: None,
         };
         tx.hash = tx.calculate_hash();
         tx

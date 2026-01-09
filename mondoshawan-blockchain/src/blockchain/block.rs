@@ -60,6 +60,23 @@ pub struct Transaction {
     /// If present, this is used instead of Ed25519 signature
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pq_signature: Option<crate::pqc::PqSignature>,
+    /// Time-locked transaction: Execute at this block number (0 = immediate)
+    /// If set, transaction will only be processed when current block >= execute_at_block
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub execute_at_block: Option<u64>,
+    /// Time-locked transaction: Execute at this Unix timestamp (0 = immediate)
+    /// If set, transaction will only be processed when block timestamp >= execute_at_timestamp
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub execute_at_timestamp: Option<u64>,
+    /// Gasless transaction: Address that sponsors (pays for) this transaction's fee
+    /// If set, the sponsor's balance is checked and debited instead of the sender's
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sponsor: Option<Address>,
+    /// Multi-signature support (for contract wallets)
+    /// If present, this transaction requires multiple signatures
+    /// Format: Vec<(signer_address, signature_bytes, public_key_bytes)>
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub multisig_signatures: Option<Vec<(Address, Vec<u8>, Vec<u8>)>>,
 }
 
 impl Transaction {
@@ -76,6 +93,10 @@ impl Transaction {
             signature: vec![0; 64], // Unsigned - must be signed before use
             public_key: vec![], // No public key for unsigned transactions
             pq_signature: None, // No PQ signature initially
+            execute_at_block: None, // Immediate execution
+            execute_at_timestamp: None, // Immediate execution
+            sponsor: None, // No sponsor (sender pays fee)
+            multisig_signatures: None, // No multi-sig initially
         };
         tx.hash = tx.calculate_hash();
         tx
@@ -94,6 +115,10 @@ impl Transaction {
             signature: vec![0; 64], // Unsigned - must be signed before use
             public_key: vec![], // No public key for unsigned transactions
             pq_signature: None, // No PQ signature initially
+            execute_at_block: None, // Immediate execution
+            execute_at_timestamp: None, // Immediate execution
+            sponsor: None, // No sponsor (sender pays fee)
+            multisig_signatures: None, // No multi-sig initially
         };
         tx.hash = tx.calculate_hash();
         tx
@@ -220,6 +245,63 @@ impl Transaction {
         }
     }
 
+    /// Create a time-locked transaction that executes at a specific block
+    pub fn with_execute_at_block(mut self, block_number: u64) -> Self {
+        self.execute_at_block = Some(block_number);
+        self.hash = self.calculate_hash();
+        self
+    }
+
+    /// Create a time-locked transaction that executes at a specific timestamp
+    pub fn with_execute_at_timestamp(mut self, timestamp: u64) -> Self {
+        self.execute_at_timestamp = Some(timestamp);
+        self.hash = self.calculate_hash();
+        self
+    }
+
+    /// Create a gasless transaction sponsored by another address
+    pub fn with_sponsor(mut self, sponsor: Address) -> Self {
+        self.sponsor = Some(sponsor);
+        self.hash = self.calculate_hash();
+        self
+    }
+
+    /// Add multi-signature support to transaction
+    pub fn with_multisig_signatures(mut self, signatures: Vec<(Address, Vec<u8>, Vec<u8>)>) -> Self {
+        self.multisig_signatures = Some(signatures);
+        self.hash = self.calculate_hash();
+        self
+    }
+
+    /// Check if transaction is multi-signature
+    pub fn is_multisig(&self) -> bool {
+        self.multisig_signatures.is_some()
+    }
+
+    /// Check if transaction is ready to execute (time-lock conditions met)
+    pub fn is_ready_to_execute(&self, current_block: u64, current_timestamp: u64) -> bool {
+        // Check block-based time lock
+        if let Some(execute_at_block) = self.execute_at_block {
+            if current_block < execute_at_block {
+                return false;
+            }
+        }
+        
+        // Check timestamp-based time lock
+        if let Some(execute_at_timestamp) = self.execute_at_timestamp {
+            if current_timestamp < execute_at_timestamp {
+                return false;
+            }
+        }
+        
+        true
+    }
+
+    /// Check if transaction is gasless (has a sponsor)
+    pub fn is_gasless(&self) -> bool {
+        self.sponsor.is_some()
+    }
+
     /// Calculate transaction hash (public for validation)
     /// Hash includes all fields except signature and public_key (signature signs this hash)
     pub fn calculate_hash(&self) -> Hash {
@@ -231,6 +313,17 @@ impl Transaction {
         hasher.update(&self.nonce.to_le_bytes());
         hasher.update(&self.data);
         hasher.update(&self.gas_limit.to_le_bytes());
+        // Include time-lock fields in hash
+        if let Some(block) = self.execute_at_block {
+            hasher.update(&block.to_le_bytes());
+        }
+        if let Some(timestamp) = self.execute_at_timestamp {
+            hasher.update(&timestamp.to_le_bytes());
+        }
+        // Include sponsor in hash
+        if let Some(sponsor) = self.sponsor {
+            hasher.update(&sponsor);
+        }
         // Note: signature and public_key are NOT included in hash (signature signs this hash)
         let result = hasher.finalize();
         let mut hash = [0u8; 32];

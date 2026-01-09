@@ -60,6 +60,14 @@ pub struct RpcServer {
     policy_manager: Option<Arc<tokio::sync::RwLock<crate::security::SecurityPolicyManager>>>,
     /// Node registry for governance and longevity tracking
     node_registry: Option<Arc<tokio::sync::RwLock<crate::governance::NodeRegistry>>>,
+    /// Reputation manager for trust scores
+    reputation_manager: Option<Arc<tokio::sync::RwLock<crate::reputation::ReputationManager>>>,
+    /// Wallet registry for account abstraction
+    wallet_registry: Option<Arc<tokio::sync::RwLock<crate::account_abstraction::WalletRegistry>>>,
+    /// Multi-signature manager for pending transactions
+    multisig_manager: Option<Arc<tokio::sync::RwLock<crate::account_abstraction::MultiSigManager>>>,
+    /// Social recovery manager for wallet recovery
+    social_recovery_manager: Option<Arc<tokio::sync::RwLock<crate::account_abstraction::SocialRecoveryManager>>>,
     /// API key for authentication (if None, authentication is disabled)
     api_key: Option<String>,
     /// Methods that don't require authentication (public methods)
@@ -89,6 +97,10 @@ impl RpcServer {
             light_client: None,
             policy_manager: None,
             node_registry: None,
+            reputation_manager: None,
+            wallet_registry: None,
+            multisig_manager: None,
+            social_recovery_manager: None,
             api_key: None,
             public_methods,
         }
@@ -130,6 +142,10 @@ impl RpcServer {
             light_client: None,
             policy_manager: None,
             node_registry: None,
+            reputation_manager: None,
+            wallet_registry: None,
+            multisig_manager: None,
+            social_recovery_manager: None,
             api_key: None,
             public_methods,
         }
@@ -172,6 +188,10 @@ impl RpcServer {
             light_client: None,
             policy_manager: None,
             node_registry: None,
+            reputation_manager: None,
+            wallet_registry: None,
+            multisig_manager: None,
+            social_recovery_manager: None,
             api_key: None,
             public_methods,
         }
@@ -207,6 +227,10 @@ impl RpcServer {
             light_client: None,
             policy_manager: None,
             node_registry: None,
+            reputation_manager: None,
+            wallet_registry: None,
+            multisig_manager: None,
+            social_recovery_manager: None,
             api_key: None,
             public_methods,
         }
@@ -408,6 +432,31 @@ impl RpcServer {
             "mds_getMiningDashboard" => self.mds_get_mining_dashboard(request.params).await,
             "mds_getNodeStatus" => self.mds_get_node_status().await,
             "mds_sendRawTransaction" => self.mds_send_raw_transaction(request.params).await,
+            // Time-locked transactions
+            "mds_createTimeLockedTransaction" => self.mds_create_time_locked_transaction(request.params).await,
+            "mds_getTimeLockedTransactions" => self.mds_get_time_locked_transactions(request.params).await,
+            // Gasless transactions
+            "mds_createGaslessTransaction" => self.mds_create_gasless_transaction(request.params).await,
+            "mds_getSponsoredTransactions" => self.mds_get_sponsored_transactions(request.params).await,
+            // Reputation system
+            "mds_getReputation" => self.mds_get_reputation(request.params).await,
+            "mds_getReputationFactors" => self.mds_get_reputation_factors(request.params).await,
+            // Account Abstraction
+            "mds_createWallet" => self.mds_create_wallet(request.params).await,
+            "mds_getWallet" => self.mds_get_wallet(request.params).await,
+            "mds_getOwnerWallets" => self.mds_get_owner_wallets(request.params).await,
+            "mds_isContractWallet" => self.mds_is_contract_wallet(request.params).await,
+            // Multi-Signature Operations
+            "mds_createMultisigTransaction" => self.mds_create_multisig_transaction(request.params).await,
+            "mds_addMultisigSignature" => self.mds_add_multisig_signature(request.params).await,
+            "mds_getPendingMultisigTransactions" => self.mds_get_pending_multisig_transactions(request.params).await,
+            "mds_validateMultisigTransaction" => self.mds_validate_multisig_transaction(request.params).await,
+            // Social Recovery Operations
+            "mds_initiateRecovery" => self.mds_initiate_recovery(request.params).await,
+            "mds_approveRecovery" => self.mds_approve_recovery(request.params).await,
+            "mds_getRecoveryStatus" => self.mds_get_recovery_status(request.params).await,
+            "mds_completeRecovery" => self.mds_complete_recovery(request.params).await,
+            "mds_cancelRecovery" => self.mds_cancel_recovery(request.params).await,
             _ => Err(JsonRpcError {
                 code: -32601,
                 message: format!("Method not found: {}", request.method),
@@ -3028,6 +3077,1216 @@ impl RpcServer {
             }),
         }
     }
+    
+    /// Set reputation manager
+    pub fn with_reputation_manager(&mut self, reputation_manager: Arc<tokio::sync::RwLock<crate::reputation::ReputationManager>>) {
+        self.reputation_manager = Some(reputation_manager);
+    }
+    
+    /// mds_createTimeLockedTransaction - Create a time-locked transaction
+    async fn mds_create_time_locked_transaction(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+        
+        let obj = params.as_object().ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Params must be an object".to_string(),
+            data: None,
+        })?;
+        
+        let from = parse_address(obj.get("from").and_then(|v| v.as_str()).ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Missing 'from' address".to_string(),
+            data: None,
+        })?)?;
+        
+        let to = parse_address(obj.get("to").and_then(|v| v.as_str()).ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Missing 'to' address".to_string(),
+            data: None,
+        })?)?;
+        
+        let value = parse_hex_number(obj.get("value").and_then(|v| v.as_str()).unwrap_or("0x0"))? as u128;
+        let fee = parse_hex_number(obj.get("fee").and_then(|v| v.as_str()).unwrap_or("0x0"))? as u128;
+        
+        let blockchain = self.blockchain.read().await;
+        let nonce = blockchain.get_nonce(from);
+        
+        let mut tx = Transaction::new(from, to, value, fee, nonce);
+        
+        // Set time-lock if provided
+        if let Some(block_str) = obj.get("executeAtBlock").and_then(|v| v.as_str()) {
+            let block = parse_hex_number(block_str)?;
+            tx = tx.with_execute_at_block(block);
+        }
+        
+        if let Some(timestamp_str) = obj.get("executeAtTimestamp").and_then(|v| v.as_str()) {
+            let timestamp = parse_hex_number(timestamp_str)?;
+            tx = tx.with_execute_at_timestamp(timestamp);
+        }
+        
+        // Note: Transaction would need to be signed by the caller
+        // This just creates the transaction structure
+        
+        Ok(json!({
+            "transaction": {
+                "hash": format!("0x{}", hex::encode(tx.hash)),
+                "from": format!("0x{}", hex::encode(tx.from)),
+                "to": format!("0x{}", hex::encode(tx.to)),
+                "value": format!("0x{:x}", tx.value),
+                "fee": format!("0x{:x}", tx.fee),
+                "nonce": format!("0x{:x}", tx.nonce),
+                "executeAtBlock": tx.execute_at_block.map(|b| format!("0x{:x}", b)),
+                "executeAtTimestamp": tx.execute_at_timestamp.map(|t| format!("0x{:x}", t)),
+            },
+            "message": "Transaction created. Must be signed before sending."
+        }))
+    }
+    
+    /// mds_getTimeLockedTransactions - Get pending time-locked transactions
+    async fn mds_get_time_locked_transactions(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let blockchain = self.blockchain.read().await;
+        let current_block = blockchain.latest_block_number();
+        let current_timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        
+        // Get all blocks and find time-locked transactions
+        let mut time_locked = Vec::new();
+        for block in blockchain.get_blocks() {
+            for tx in &block.transactions {
+                if tx.execute_at_block.is_some() || tx.execute_at_timestamp.is_some() {
+                    let is_ready = tx.is_ready_to_execute(current_block, current_timestamp);
+                    time_locked.push(json!({
+                        "hash": format!("0x{}", hex::encode(tx.hash)),
+                        "from": format!("0x{}", hex::encode(tx.from)),
+                        "to": format!("0x{}", hex::encode(tx.to)),
+                        "value": format!("0x{:x}", tx.value),
+                        "executeAtBlock": tx.execute_at_block.map(|b| format!("0x{:x}", b)),
+                        "executeAtTimestamp": tx.execute_at_timestamp.map(|t| format!("0x{:x}", t)),
+                        "isReady": is_ready,
+                        "currentBlock": format!("0x{:x}", current_block),
+                        "currentTimestamp": format!("0x{:x}", current_timestamp),
+                    }));
+                }
+            }
+        }
+        
+        Ok(json!({
+            "timeLockedTransactions": time_locked,
+            "count": time_locked.len(),
+        }))
+    }
+    
+    /// mds_createGaslessTransaction - Create a gasless (sponsored) transaction
+    async fn mds_create_gasless_transaction(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+        
+        let obj = params.as_object().ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Params must be an object".to_string(),
+            data: None,
+        })?;
+        
+        let from = parse_address(obj.get("from").and_then(|v| v.as_str()).ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Missing 'from' address".to_string(),
+            data: None,
+        })?)?;
+        
+        let to = parse_address(obj.get("to").and_then(|v| v.as_str()).ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Missing 'to' address".to_string(),
+            data: None,
+        })?)?;
+        
+        let sponsor = parse_address(obj.get("sponsor").and_then(|v| v.as_str()).ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Missing 'sponsor' address".to_string(),
+            data: None,
+        })?)?;
+        
+        let value = parse_hex_number(obj.get("value").and_then(|v| v.as_str()).unwrap_or("0x0"))? as u128;
+        let fee = parse_hex_number(obj.get("fee").and_then(|v| v.as_str()).unwrap_or("0x0"))? as u128;
+        
+        let blockchain = self.blockchain.read().await;
+        let nonce = blockchain.get_nonce(from);
+        
+        let tx = Transaction::new(from, to, value, fee, nonce)
+            .with_sponsor(sponsor);
+        
+        // Check sponsor balance
+        let sponsor_balance = blockchain.get_balance(sponsor);
+        if sponsor_balance < fee {
+            return Err(JsonRpcError {
+                code: -32603,
+                message: format!("Insufficient sponsor balance: has {}, needs {}", sponsor_balance, fee),
+                data: None,
+            });
+        }
+        
+        Ok(json!({
+            "transaction": {
+                "hash": format!("0x{}", hex::encode(tx.hash)),
+                "from": format!("0x{}", hex::encode(tx.from)),
+                "to": format!("0x{}", hex::encode(tx.to)),
+                "value": format!("0x{:x}", tx.value),
+                "fee": format!("0x{:x}", tx.fee),
+                "sponsor": format!("0x{}", hex::encode(sponsor)),
+                "nonce": format!("0x{:x}", tx.nonce),
+            },
+            "sponsorBalance": format!("0x{:x}", sponsor_balance),
+            "message": "Transaction created. Must be signed before sending."
+        }))
+    }
+    
+    /// mds_getSponsoredTransactions - Get transactions sponsored by an address
+    async fn mds_get_sponsored_transactions(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+        
+        let sponsor = parse_address(params.as_array()
+            .and_then(|arr| arr.get(0))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing sponsor address".to_string(),
+                data: None,
+            })?)?;
+        
+        let blockchain = self.blockchain.read().await;
+        let mut sponsored = Vec::new();
+        
+        for block in blockchain.get_blocks() {
+            for tx in &block.transactions {
+                if let Some(tx_sponsor) = tx.sponsor {
+                    if tx_sponsor == sponsor {
+                        sponsored.push(json!({
+                            "hash": format!("0x{}", hex::encode(tx.hash)),
+                            "from": format!("0x{}", hex::encode(tx.from)),
+                            "to": format!("0x{}", hex::encode(tx.to)),
+                            "value": format!("0x{:x}", tx.value),
+                            "fee": format!("0x{:x}", tx.fee),
+                            "sponsor": format!("0x{}", hex::encode(sponsor)),
+                            "blockNumber": format!("0x{:x}", block.header.block_number),
+                        }));
+                    }
+                }
+            }
+        }
+        
+        Ok(json!({
+            "sponsoredTransactions": sponsored,
+            "count": sponsored.len(),
+            "sponsor": format!("0x{}", hex::encode(sponsor)),
+        }))
+    }
+    
+    /// mds_getReputation - Get reputation score for an address
+    async fn mds_get_reputation(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let reputation_manager = self.reputation_manager.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Reputation manager not available".to_string(),
+                data: None,
+            })?;
+        
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+        
+        let address = parse_address(params.as_array()
+            .and_then(|arr| arr.get(0))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing address".to_string(),
+                data: None,
+            })?)?;
+        
+        let mut manager = reputation_manager.write().await;
+        let reputation = manager.get_reputation(&address);
+        
+        Ok(json!({
+            "address": format!("0x{}", hex::encode(address)),
+            "reputation": reputation.value(),
+            "isHigh": reputation.is_high(),
+            "isMedium": reputation.is_medium(),
+            "isLow": reputation.is_low(),
+        }))
+    }
+    
+    /// mds_getReputationFactors - Get detailed reputation factors for an address
+    async fn mds_get_reputation_factors(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let reputation_manager = self.reputation_manager.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Reputation manager not available".to_string(),
+                data: None,
+            })?;
+        
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+        
+        let address = parse_address(params.as_array()
+            .and_then(|arr| arr.get(0))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing address".to_string(),
+                data: None,
+            })?)?;
+        
+        let mut manager = reputation_manager.write().await;
+        let reputation = manager.get_reputation(&address);
+        
+        // Get factors before dropping the write lock
+        let factors = manager.get_factors(&address).cloned();
+        drop(manager);
+        
+        if let Some(factors) = factors {
+            Ok(json!({
+                "address": format!("0x{}", hex::encode(address)),
+                "reputation": reputation.value(),
+                "factors": {
+                    "successfulTxs": factors.successful_txs,
+                    "failedTxs": factors.failed_txs,
+                    "blocksMined": factors.blocks_mined,
+                    "nodeLongevity": factors.node_longevity,
+                    "accountAgeDays": factors.account_age_days,
+                    "totalValueTransacted": format!("0x{:x}", factors.total_value_transacted),
+                    "uniqueContacts": factors.unique_contacts,
+                    "suspiciousActivities": factors.suspicious_activities,
+                }
+            }))
+        } else {
+            Ok(json!({
+                "address": format!("0x{}", hex::encode(address)),
+                "reputation": reputation.value(),
+                "factors": null,
+            }))
+        }
+    }
+    
+    /// Set wallet registry
+    pub fn with_wallet_registry(&mut self, wallet_registry: Arc<tokio::sync::RwLock<crate::account_abstraction::WalletRegistry>>) {
+        self.wallet_registry = Some(wallet_registry);
+    }
+    
+    /// Set multi-signature manager
+    pub fn with_multisig_manager(&mut self, multisig_manager: Arc<tokio::sync::RwLock<crate::account_abstraction::MultiSigManager>>) {
+        self.multisig_manager = Some(multisig_manager);
+    }
+    
+    /// Set social recovery manager
+    pub fn with_social_recovery_manager(&mut self, social_recovery_manager: Arc<tokio::sync::RwLock<crate::account_abstraction::SocialRecoveryManager>>) {
+        self.social_recovery_manager = Some(social_recovery_manager);
+    }
+    
+    /// mds_createWallet - Create a new smart contract wallet
+    async fn mds_create_wallet(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let wallet_registry = self.wallet_registry.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Wallet registry not available".to_string(),
+                data: None,
+            })?;
+        
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+        
+        let obj = params.as_object().ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Params must be an object".to_string(),
+            data: None,
+        })?;
+        
+        let owner = parse_address(obj.get("owner").and_then(|v| v.as_str()).ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Missing 'owner' address".to_string(),
+            data: None,
+        })?)?;
+        
+        let wallet_type_str = obj.get("walletType").and_then(|v| v.as_str()).unwrap_or("basic");
+        let salt = obj.get("salt").and_then(|v| v.as_str())
+            .map(|s| parse_hex_number(s))
+            .transpose()?
+            .unwrap_or(0);
+        
+        use crate::account_abstraction::{WalletFactory, WalletType};
+        
+        let wallet = match wallet_type_str {
+            "basic" => {
+                WalletFactory::create_basic_wallet(owner, salt)
+            }
+            "multisig" => {
+                let signers_arr = obj.get("signers").and_then(|v| v.as_array())
+                    .ok_or_else(|| JsonRpcError {
+                        code: -32602,
+                        message: "Missing 'signers' array for multisig wallet".to_string(),
+                        data: None,
+                    })?;
+                
+                let signers: Result<Vec<Address>, _> = signers_arr
+                    .iter()
+                    .map(|v| v.as_str().ok_or_else(|| JsonRpcError {
+                        code: -32602,
+                        message: "Invalid signer address".to_string(),
+                        data: None,
+                    }).and_then(|s| parse_address(s)))
+                    .collect();
+                
+                let signers = signers?;
+                let threshold = obj.get("threshold").and_then(|v| v.as_u64())
+                    .ok_or_else(|| JsonRpcError {
+                        code: -32602,
+                        message: "Missing 'threshold' for multisig wallet".to_string(),
+                        data: None,
+                    })? as u8;
+                
+                WalletFactory::create_multisig_wallet(owner, salt, signers, threshold)
+                    .map_err(|e| JsonRpcError {
+                        code: -32603,
+                        message: format!("Failed to create multisig wallet: {}", e),
+                        data: None,
+                    })?
+            }
+            "socialRecovery" => {
+                let guardians_arr = obj.get("guardians").and_then(|v| v.as_array())
+                    .ok_or_else(|| JsonRpcError {
+                        code: -32602,
+                        message: "Missing 'guardians' array for social recovery wallet".to_string(),
+                        data: None,
+                    })?;
+                
+                let guardians: Result<Vec<Address>, _> = guardians_arr
+                    .iter()
+                    .map(|v| v.as_str().ok_or_else(|| JsonRpcError {
+                        code: -32602,
+                        message: "Invalid guardian address".to_string(),
+                        data: None,
+                    }).and_then(|s| parse_address(s)))
+                    .collect();
+                
+                let guardians = guardians?;
+                let recovery_threshold = obj.get("recoveryThreshold").and_then(|v| v.as_u64())
+                    .ok_or_else(|| JsonRpcError {
+                        code: -32602,
+                        message: "Missing 'recoveryThreshold' for social recovery wallet".to_string(),
+                        data: None,
+                    })? as u8;
+                
+                let time_delay = obj.get("timeDelay").and_then(|v| v.as_u64())
+                    .unwrap_or(604800); // Default 7 days
+                
+                WalletFactory::create_social_recovery_wallet(owner, salt, guardians, recovery_threshold, time_delay)
+                    .map_err(|e| JsonRpcError {
+                        code: -32603,
+                        message: format!("Failed to create social recovery wallet: {}", e),
+                        data: None,
+                    })?
+            }
+            "spendingLimit" => {
+                let daily_limit = obj.get("dailyLimit").and_then(|v| v.as_str())
+                    .map(|s| parse_hex_number(s))
+                    .transpose()?
+                    .unwrap_or(0) as u128;
+                let weekly_limit = obj.get("weeklyLimit").and_then(|v| v.as_str())
+                    .map(|s| parse_hex_number(s))
+                    .transpose()?
+                    .unwrap_or(0) as u128;
+                let monthly_limit = obj.get("monthlyLimit").and_then(|v| v.as_str())
+                    .map(|s| parse_hex_number(s))
+                    .transpose()?
+                    .unwrap_or(0) as u128;
+                
+                WalletFactory::create_spending_limit_wallet(owner, salt, daily_limit, weekly_limit, monthly_limit)
+            }
+            _ => {
+                return Err(JsonRpcError {
+                    code: -32602,
+                    message: format!("Unknown wallet type: {}", wallet_type_str),
+                    data: None,
+                });
+            }
+        };
+        
+        // Register wallet
+        let mut registry = wallet_registry.write().await;
+        match registry.register_wallet(wallet.clone()) {
+            Ok(_) => {
+                Ok(json!({
+                    "walletAddress": format!("0x{}", hex::encode(wallet.address)),
+                    "owner": format!("0x{}", hex::encode(wallet.owner)),
+                    "walletType": wallet_type_str,
+                    "nonce": format!("0x{:x}", wallet.nonce),
+                    "createdAt": wallet.created_at,
+                    "message": "Wallet created successfully"
+                }))
+            }
+            Err(e) => Err(JsonRpcError {
+                code: -32603,
+                message: format!("Failed to register wallet: {}", e),
+                data: None,
+            }),
+        }
+    }
+    
+    /// mds_getWallet - Get wallet information by address
+    async fn mds_get_wallet(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let wallet_registry = self.wallet_registry.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Wallet registry not available".to_string(),
+                data: None,
+            })?;
+        
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+        
+        let address = parse_address(params.as_array()
+            .and_then(|arr| arr.get(0))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing wallet address".to_string(),
+                data: None,
+            })?)?;
+        
+        let registry = wallet_registry.read().await;
+        if let Some(wallet) = registry.get_wallet(&address) {
+            let wallet_type_str = match &wallet.wallet_type {
+                crate::account_abstraction::WalletType::Basic => "basic",
+                crate::account_abstraction::WalletType::MultiSig { .. } => "multisig",
+                crate::account_abstraction::WalletType::SocialRecovery { .. } => "socialRecovery",
+                crate::account_abstraction::WalletType::SpendingLimit { .. } => "spendingLimit",
+                crate::account_abstraction::WalletType::Combined { .. } => "combined",
+            };
+            
+            Ok(json!({
+                "walletAddress": format!("0x{}", hex::encode(wallet.address)),
+                "owner": format!("0x{}", hex::encode(wallet.owner)),
+                "walletType": wallet_type_str,
+                "nonce": format!("0x{:x}", wallet.nonce),
+                "createdAt": wallet.created_at,
+            }))
+        } else {
+            Err(JsonRpcError {
+                code: -32602,
+                message: "Wallet not found".to_string(),
+                data: None,
+            })
+        }
+    }
+    
+    /// mds_getOwnerWallets - Get all wallets for an owner
+    async fn mds_get_owner_wallets(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let wallet_registry = self.wallet_registry.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Wallet registry not available".to_string(),
+                data: None,
+            })?;
+        
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+        
+        let owner = parse_address(params.as_array()
+            .and_then(|arr| arr.get(0))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing owner address".to_string(),
+                data: None,
+            })?)?;
+        
+        let registry = wallet_registry.read().await;
+        let wallets = registry.get_owner_wallets(&owner);
+        
+        let wallets_json: Vec<Value> = wallets.iter().map(|wallet| {
+            let wallet_type_str = match &wallet.wallet_type {
+                crate::account_abstraction::WalletType::Basic => "basic",
+                crate::account_abstraction::WalletType::MultiSig { .. } => "multisig",
+                crate::account_abstraction::WalletType::SocialRecovery { .. } => "socialRecovery",
+                crate::account_abstraction::WalletType::SpendingLimit { .. } => "spendingLimit",
+                crate::account_abstraction::WalletType::Combined { .. } => "combined",
+            };
+            
+            json!({
+                "walletAddress": format!("0x{}", hex::encode(wallet.address)),
+                "walletType": wallet_type_str,
+                "nonce": format!("0x{:x}", wallet.nonce),
+                "createdAt": wallet.created_at,
+            })
+        }).collect();
+        
+        Ok(json!({
+            "owner": format!("0x{}", hex::encode(owner)),
+            "wallets": wallets_json,
+            "count": wallets_json.len(),
+        }))
+    }
+    
+    /// mds_isContractWallet - Check if an address is a contract wallet
+    async fn mds_is_contract_wallet(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let wallet_registry = self.wallet_registry.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Wallet registry not available".to_string(),
+                data: None,
+            })?;
+        
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+        
+        let address = parse_address(params.as_array()
+            .and_then(|arr| arr.get(0))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing address".to_string(),
+                data: None,
+            })?)?;
+        
+        let registry = wallet_registry.read().await;
+        let is_wallet = registry.is_contract_wallet(&address);
+        
+        Ok(json!({
+            "address": format!("0x{}", hex::encode(address)),
+            "isContractWallet": is_wallet,
+        }))
+    }
+    
+    /// mds_createMultisigTransaction - Create a new multi-signature transaction
+    async fn mds_create_multisig_transaction(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let wallet_registry = self.wallet_registry.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Wallet registry not available".to_string(),
+                data: None,
+            })?;
+        
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+        
+        let obj = params.as_object().ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Params must be an object".to_string(),
+            data: None,
+        })?;
+        
+        let wallet_address = parse_address(obj.get("walletAddress").and_then(|v| v.as_str()).ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Missing 'walletAddress'".to_string(),
+            data: None,
+        })?)?;
+        
+        // Verify wallet exists and is multi-sig
+        let registry = wallet_registry.read().await;
+        let wallet = registry.get_wallet(&wallet_address)
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Wallet not found".to_string(),
+                data: None,
+            })?;
+        
+        if !wallet.is_multisig() {
+            return Err(JsonRpcError {
+                code: -32602,
+                message: "Wallet is not a multi-signature wallet".to_string(),
+                data: None,
+            });
+        }
+        
+        // Get signers and threshold from wallet
+        let (signers, threshold) = match &wallet.wallet_type {
+            crate::account_abstraction::WalletType::MultiSig { signers, threshold } => {
+                (signers.clone(), *threshold)
+            }
+            crate::account_abstraction::WalletType::Combined { signers, threshold, .. } => {
+                (signers.clone(), *threshold)
+            }
+            _ => {
+                return Err(JsonRpcError {
+                    code: -32602,
+                    message: "Wallet is not a multi-signature wallet".to_string(),
+                    data: None,
+                });
+            }
+        };
+        
+        // Parse transaction fields
+        let to = parse_address(obj.get("to").and_then(|v| v.as_str()).ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Missing 'to' address".to_string(),
+            data: None,
+        })?)?;
+        
+        let value = obj.get("value").and_then(|v| v.as_str())
+            .map(|s| parse_hex_u128(s))
+            .transpose()?
+            .unwrap_or(0);
+        
+        let fee = obj.get("fee").and_then(|v| v.as_str())
+            .map(|s| parse_hex_u128(s))
+            .transpose()?
+            .unwrap_or(0);
+        
+        let nonce = wallet.get_nonce();
+        
+        // Create transaction
+        let tx = crate::blockchain::Transaction::new(wallet_address, to, value, fee, nonce);
+        
+        // Clone signers for JSON response (before moving into MultiSigTransaction)
+        let signers_for_json: Vec<String> = signers.iter().map(|s| format!("0x{}", hex::encode(s))).collect();
+        
+        // Create multi-sig transaction
+        use crate::account_abstraction::MultiSigTransaction;
+        let multisig_tx = MultiSigTransaction::new(wallet_address, tx, signers, threshold)
+            .map_err(|e| JsonRpcError {
+                code: -32603,
+                message: format!("Failed to create multi-sig transaction: {}", e),
+                data: None,
+            })?;
+        
+        Ok(json!({
+            "walletAddress": format!("0x{}", hex::encode(wallet_address)),
+            "transactionHash": format!("0x{}", hex::encode(multisig_tx.transaction.hash)),
+            "threshold": threshold,
+            "signaturesRequired": threshold,
+            "signaturesCollected": 0,
+            "expectedSigners": signers_for_json,
+            "message": "Multi-sig transaction created. Add signatures using mds_addMultisigSignature"
+        }))
+    }
+    
+    /// mds_addMultisigSignature - Add a signature to a multi-sig transaction
+    async fn mds_add_multisig_signature(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let multisig_manager = self.multisig_manager.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Multi-sig manager not available".to_string(),
+                data: None,
+            })?;
+        
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+        
+        let obj = params.as_object().ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Params must be an object".to_string(),
+            data: None,
+        })?;
+        
+        let wallet_address = parse_address(obj.get("walletAddress").and_then(|v| v.as_str()).ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Missing 'walletAddress'".to_string(),
+            data: None,
+        })?)?;
+        
+        let tx_hash = parse_hash(obj.get("transactionHash").and_then(|v| v.as_str()).ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Missing 'transactionHash'".to_string(),
+            data: None,
+        })?)?;
+        
+        let signer = parse_address(obj.get("signer").and_then(|v| v.as_str()).ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Missing 'signer' address".to_string(),
+            data: None,
+        })?)?;
+        
+        let signature_hex = obj.get("signature").and_then(|v| v.as_str()).ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Missing 'signature'".to_string(),
+            data: None,
+        })?;
+        
+        let signature = hex::decode(signature_hex.strip_prefix("0x").unwrap_or(signature_hex))
+            .map_err(|_| JsonRpcError {
+                code: -32602,
+                message: "Invalid signature format".to_string(),
+                data: None,
+            })?;
+        
+        let public_key_hex = obj.get("publicKey").and_then(|v| v.as_str()).ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Missing 'publicKey'".to_string(),
+            data: None,
+        })?;
+        
+        let public_key = hex::decode(public_key_hex.strip_prefix("0x").unwrap_or(public_key_hex))
+            .map_err(|_| JsonRpcError {
+                code: -32602,
+                message: "Invalid public key format".to_string(),
+                data: None,
+            })?;
+        
+        // Add signature to pending transaction
+        let mut manager = multisig_manager.write().await;
+        match manager.add_signature_to_pending(&wallet_address, &tx_hash, signer, signature, public_key) {
+            Ok(_) => {
+                // Get updated transaction
+                let pending = manager.get_pending_transactions(&wallet_address);
+                let tx = pending.iter()
+                    .find(|t| t.transaction.hash == tx_hash)
+                    .ok_or_else(|| JsonRpcError {
+                        code: -32602,
+                        message: "Transaction not found".to_string(),
+                        data: None,
+                    })?;
+                
+                Ok(json!({
+                    "walletAddress": format!("0x{}", hex::encode(wallet_address)),
+                    "transactionHash": format!("0x{}", hex::encode(tx_hash)),
+                    "signaturesCollected": tx.signature_count(),
+                    "signaturesRequired": tx.threshold,
+                    "isReady": tx.is_ready(),
+                    "signedBy": tx.signed_by().iter().map(|s| format!("0x{}", hex::encode(s))).collect::<Vec<_>>(),
+                    "pendingSigners": tx.pending_signers().iter().map(|s| format!("0x{}", hex::encode(s))).collect::<Vec<_>>(),
+                    "message": if tx.is_ready() { "Transaction ready to execute" } else { "More signatures needed" }
+                }))
+            }
+            Err(e) => Err(JsonRpcError {
+                code: -32603,
+                message: format!("Failed to add signature: {}", e),
+                data: None,
+            }),
+        }
+    }
+    
+    /// mds_getPendingMultisigTransactions - Get pending multi-sig transactions for a wallet
+    async fn mds_get_pending_multisig_transactions(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let multisig_manager = self.multisig_manager.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Multi-sig manager not available".to_string(),
+                data: None,
+            })?;
+        
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+        
+        let wallet_address = parse_address(params.as_array()
+            .and_then(|arr| arr.get(0))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing wallet address".to_string(),
+                data: None,
+            })?)?;
+        
+        let manager = multisig_manager.read().await;
+        let pending = manager.get_pending_transactions(&wallet_address);
+        
+        let transactions_json: Vec<Value> = pending.iter().map(|tx| {
+            json!({
+                "transactionHash": format!("0x{}", hex::encode(tx.transaction.hash)),
+                "to": format!("0x{}", hex::encode(tx.transaction.to)),
+                "value": format!("0x{:x}", tx.transaction.value),
+                "fee": format!("0x{:x}", tx.transaction.fee),
+                "nonce": format!("0x{:x}", tx.transaction.nonce),
+                "signaturesCollected": tx.signature_count(),
+                "signaturesRequired": tx.threshold,
+                "isReady": tx.is_ready(),
+                "signedBy": tx.signed_by().iter().map(|s| format!("0x{}", hex::encode(s))).collect::<Vec<_>>(),
+                "pendingSigners": tx.pending_signers().iter().map(|s| format!("0x{}", hex::encode(s))).collect::<Vec<_>>(),
+            })
+        }).collect();
+        
+        Ok(json!({
+            "walletAddress": format!("0x{}", hex::encode(wallet_address)),
+            "pendingTransactions": transactions_json,
+            "count": transactions_json.len(),
+        }))
+    }
+    
+    /// mds_validateMultisigTransaction - Validate a multi-sig transaction
+    async fn mds_validate_multisig_transaction(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+        
+        // This would parse and validate a complete multi-sig transaction
+        // For now, return a placeholder
+        
+        Ok(json!({
+            "valid": false,
+            "message": "Multi-sig transaction validation - full implementation in progress"
+        }))
+    }
+    
+    /// mds_initiateRecovery - Initiate wallet recovery process
+    async fn mds_initiate_recovery(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let social_recovery_manager = self.social_recovery_manager.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Social recovery manager not available".to_string(),
+                data: None,
+            })?;
+        
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Missing parameters".to_string(),
+            data: None,
+        })?;
+        
+        let wallet_address = parse_address(params.get("walletAddress")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing 'walletAddress'".to_string(),
+                data: None,
+            })?)?;
+        
+        let new_owner = parse_address(params.get("newOwner")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing 'newOwner'".to_string(),
+                data: None,
+            })?)?;
+        
+        let guardians: Vec<Address> = params.get("guardians")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing 'guardians' array".to_string(),
+                data: None,
+            })?
+            .iter()
+            .map(|v| v.as_str().and_then(|s| parse_address(s).ok()))
+            .collect::<Option<Vec<_>>>()
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Invalid guardian addresses".to_string(),
+                data: None,
+            })?;
+        
+        let recovery_threshold = params.get("recoveryThreshold")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as u8)
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing 'recoveryThreshold'".to_string(),
+                data: None,
+            })?;
+        
+        let time_delay = params.get("timeDelay")
+            .and_then(|v| v.as_u64());
+        
+        // Get current timestamp from blockchain
+        let blockchain = self.blockchain.read().await;
+        let current_timestamp = blockchain.get_blocks()
+            .last()
+            .map(|b| b.header.timestamp)
+            .unwrap_or(0);
+        drop(blockchain);
+        
+        let mut manager = social_recovery_manager.write().await;
+        match manager.initiate_recovery(
+            wallet_address,
+            new_owner,
+            guardians.clone(),
+            recovery_threshold,
+            time_delay,
+            current_timestamp,
+        ) {
+            Ok(request) => {
+                Ok(json!({
+                    "walletAddress": format!("0x{}", hex::encode(wallet_address)),
+                    "newOwner": format!("0x{}", hex::encode(new_owner)),
+                    "guardians": guardians.iter().map(|g| format!("0x{}", hex::encode(g))).collect::<Vec<_>>(),
+                    "recoveryThreshold": recovery_threshold,
+                    "timeDelay": request.time_delay,
+                    "initiatedAt": request.initiated_at,
+                    "status": match request.status {
+                        crate::account_abstraction::RecoveryStatus::Pending => "pending",
+                        crate::account_abstraction::RecoveryStatus::Approved => "approved",
+                        crate::account_abstraction::RecoveryStatus::Ready => "ready",
+                        crate::account_abstraction::RecoveryStatus::Completed => "completed",
+                        crate::account_abstraction::RecoveryStatus::Cancelled => "cancelled",
+                    },
+                    "approvalCount": request.approval_count(),
+                }))
+            }
+            Err(e) => Err(JsonRpcError {
+                code: -32603,
+                message: e,
+                data: None,
+            }),
+        }
+    }
+    
+    /// mds_approveRecovery - Approve a recovery request (guardian)
+    async fn mds_approve_recovery(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let social_recovery_manager = self.social_recovery_manager.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Social recovery manager not available".to_string(),
+                data: None,
+            })?;
+        
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Missing parameters".to_string(),
+            data: None,
+        })?;
+        
+        let wallet_address = parse_address(params.get("walletAddress")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing 'walletAddress'".to_string(),
+                data: None,
+            })?)?;
+        
+        let guardian = parse_address(params.get("guardian")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing 'guardian'".to_string(),
+                data: None,
+            })?)?;
+        
+        // Get current timestamp
+        let blockchain = self.blockchain.read().await;
+        let current_timestamp = blockchain.get_blocks()
+            .last()
+            .map(|b| b.header.timestamp)
+            .unwrap_or(0);
+        drop(blockchain);
+        
+        let mut manager = social_recovery_manager.write().await;
+        match manager.approve_recovery(wallet_address, guardian, current_timestamp) {
+            Ok(_) => {
+                // Get updated status
+                let status = manager.get_recovery_status(&wallet_address)
+                    .ok_or_else(|| JsonRpcError {
+                        code: -32603,
+                        message: "Recovery request not found".to_string(),
+                        data: None,
+                    })?;
+                
+                Ok(json!({
+                    "walletAddress": format!("0x{}", hex::encode(wallet_address)),
+                    "status": match status.status {
+                        crate::account_abstraction::RecoveryStatus::Pending => "pending",
+                        crate::account_abstraction::RecoveryStatus::Approved => "approved",
+                        crate::account_abstraction::RecoveryStatus::Ready => "ready",
+                        crate::account_abstraction::RecoveryStatus::Completed => "completed",
+                        crate::account_abstraction::RecoveryStatus::Cancelled => "cancelled",
+                    },
+                    "approvalCount": status.approval_count(),
+                    "thresholdMet": status.threshold_met(),
+                }))
+            }
+            Err(e) => Err(JsonRpcError {
+                code: -32603,
+                message: e,
+                data: None,
+            }),
+        }
+    }
+    
+    /// mds_getRecoveryStatus - Get recovery request status
+    async fn mds_get_recovery_status(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let social_recovery_manager = self.social_recovery_manager.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Social recovery manager not available".to_string(),
+                data: None,
+            })?;
+        
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Missing parameters".to_string(),
+            data: None,
+        })?;
+        
+        let wallet_address = parse_address(params.get("walletAddress")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing 'walletAddress'".to_string(),
+                data: None,
+            })?)?;
+        
+        // Get current timestamp
+        let blockchain = self.blockchain.read().await;
+        let current_timestamp = blockchain.get_blocks()
+            .last()
+            .map(|b| b.header.timestamp)
+            .unwrap_or(0);
+        drop(blockchain);
+        
+        let mut manager = social_recovery_manager.write().await;
+        manager.update_all_statuses(current_timestamp);
+        
+        let status = manager.get_recovery_status(&wallet_address)
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Recovery request not found".to_string(),
+                data: None,
+            })?;
+        
+        let approvals: Vec<Value> = status.approvals.iter()
+            .map(|(guardian, timestamp)| {
+                json!({
+                    "guardian": format!("0x{}", hex::encode(guardian)),
+                    "approvedAt": timestamp,
+                })
+            })
+            .collect();
+        
+        Ok(json!({
+            "walletAddress": format!("0x{}", hex::encode(wallet_address)),
+            "newOwner": format!("0x{}", hex::encode(status.new_owner)),
+            "guardians": status.guardians.iter().map(|g| format!("0x{}", hex::encode(g))).collect::<Vec<_>>(),
+            "recoveryThreshold": status.recovery_threshold,
+            "timeDelay": status.time_delay,
+            "initiatedAt": status.initiated_at,
+            "status": match status.status {
+                crate::account_abstraction::RecoveryStatus::Pending => "pending",
+                crate::account_abstraction::RecoveryStatus::Approved => "approved",
+                crate::account_abstraction::RecoveryStatus::Ready => "ready",
+                crate::account_abstraction::RecoveryStatus::Completed => "completed",
+                crate::account_abstraction::RecoveryStatus::Cancelled => "cancelled",
+            },
+            "approvalCount": status.approval_count(),
+            "thresholdMet": status.threshold_met(),
+            "approvals": approvals,
+            "isReady": status.is_ready(current_timestamp),
+        }))
+    }
+    
+    /// mds_completeRecovery - Complete recovery and transfer wallet ownership
+    async fn mds_complete_recovery(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let social_recovery_manager = self.social_recovery_manager.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Social recovery manager not available".to_string(),
+                data: None,
+            })?;
+        
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Missing parameters".to_string(),
+            data: None,
+        })?;
+        
+        let wallet_address = parse_address(params.get("walletAddress")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing 'walletAddress'".to_string(),
+                data: None,
+            })?)?;
+        
+        // Get current timestamp
+        let blockchain = self.blockchain.read().await;
+        let current_timestamp = blockchain.get_blocks()
+            .last()
+            .map(|b| b.header.timestamp)
+            .unwrap_or(0);
+        drop(blockchain);
+        
+        let mut manager = social_recovery_manager.write().await;
+        match manager.complete_recovery(wallet_address, current_timestamp) {
+            Ok(new_owner) => {
+                Ok(json!({
+                    "walletAddress": format!("0x{}", hex::encode(wallet_address)),
+                    "newOwner": format!("0x{}", hex::encode(new_owner)),
+                    "status": "completed",
+                    "message": "Recovery completed successfully",
+                }))
+            }
+            Err(e) => Err(JsonRpcError {
+                code: -32603,
+                message: e,
+                data: None,
+            }),
+        }
+    }
+    
+    /// mds_cancelRecovery - Cancel a recovery request
+    async fn mds_cancel_recovery(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let social_recovery_manager = self.social_recovery_manager.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Social recovery manager not available".to_string(),
+                data: None,
+            })?;
+        
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Missing parameters".to_string(),
+            data: None,
+        })?;
+        
+        let wallet_address = parse_address(params.get("walletAddress")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing 'walletAddress'".to_string(),
+                data: None,
+            })?)?;
+        
+        let mut manager = social_recovery_manager.write().await;
+        match manager.cancel_recovery(wallet_address) {
+            Ok(_) => {
+                Ok(json!({
+                    "walletAddress": format!("0x{}", hex::encode(wallet_address)),
+                    "status": "cancelled",
+                    "message": "Recovery request cancelled",
+                }))
+            }
+            Err(e) => Err(JsonRpcError {
+                code: -32603,
+                message: e,
+                data: None,
+            }),
+        }
+    }
 }
 
 /// Parse hex address string to Address
@@ -3094,6 +4353,25 @@ fn parse_hex_number(s: &str) -> Result<u64, JsonRpcError> {
         })
 }
 
+/// Parse hex number string to u128
+fn parse_hex_u128(s: &str) -> Result<u128, JsonRpcError> {
+    let s = s.strip_prefix("0x").unwrap_or(s);
+    if s == "latest" || s == "pending" {
+        return Err(JsonRpcError {
+            code: -32602,
+            message: "latest/pending not yet supported".to_string(),
+            data: None,
+        });
+    }
+
+    u128::from_str_radix(s, 16)
+        .map_err(|_| JsonRpcError {
+            code: -32602,
+            message: "Invalid number format".to_string(),
+            data: None,
+        })
+}
+
 /// Convert block to JSON (with optional shard information)
 fn block_to_json(block: Option<Block>) -> Value {
     block_to_json_with_shard(block, None)
@@ -3149,6 +4427,22 @@ fn tx_to_json_with_shard(tx: &Transaction, block_number: u64, shard_info: Option
         json["fromShard"] = Value::Number(from_shard.into());
         json["toShard"] = Value::Number(to_shard.into());
         json["isCrossShard"] = Value::Bool(from_shard != to_shard);
+    }
+    
+    // Add time-lock information if available
+    if let Some(execute_at_block) = tx.execute_at_block {
+        json["executeAtBlock"] = Value::String(format!("0x{:x}", execute_at_block));
+        json["isTimeLocked"] = Value::Bool(true);
+    }
+    if let Some(execute_at_timestamp) = tx.execute_at_timestamp {
+        json["executeAtTimestamp"] = Value::String(format!("0x{:x}", execute_at_timestamp));
+        json["isTimeLocked"] = Value::Bool(true);
+    }
+    
+    // Add sponsor information if gasless transaction
+    if let Some(sponsor) = tx.sponsor {
+        json["sponsor"] = Value::String(format!("0x{}", hex::encode(sponsor)));
+        json["isGasless"] = Value::Bool(true);
     }
     
     json
