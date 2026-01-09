@@ -381,6 +381,7 @@ impl RpcServer {
             "mds_getBlockFairness" => self.mds_get_block_fairness(request.params).await,
             "mds_traceFunds" => self.mds_trace_funds(request.params).await,
             "mds_getAddressSummary" => self.mds_get_address_summary(request.params).await,
+            "mds_getAddressTransactions" => self.mds_get_address_transactions(request.params).await,
             "mds_detectAnomalies" => self.mds_detect_anomalies(request.params).await,
             "mds_findRelatedAddresses" => self.mds_find_related_addresses(request.params).await,
             "mds_getStateRootHistory" => self.mds_get_state_root_history(request.params).await,
@@ -404,6 +405,7 @@ impl RpcServer {
             "mds_startMining" => self.mds_start_mining(request.params).await,
             "mds_stopMining" => self.mds_stop_mining(request.params).await,
             "mds_getMiningStatus" => self.mds_get_mining_status().await,
+            "mds_getMiningDashboard" => self.mds_get_mining_dashboard(request.params).await,
             "mds_getNodeStatus" => self.mds_get_node_status().await,
             "mds_sendRawTransaction" => self.mds_send_raw_transaction(request.params).await,
             _ => Err(JsonRpcError {
@@ -1008,6 +1010,81 @@ impl RpcServer {
                 data: None,
             })
         }
+    }
+
+    /// Get detailed mining dashboard statistics including hashrate and earnings
+    async fn mds_get_mining_dashboard(&self, _params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let blockchain = self.blockchain.read().await;
+        let blocks = blockchain.get_blocks();
+        let total_blocks = blocks.len() as u64;
+
+        // Calculate stream-specific metrics over last 100 blocks
+        let mut stream_a_blocks = 0u64;
+        let mut stream_b_blocks = 0u64;
+        let mut stream_c_blocks = 0u64;
+        let mut stream_a_earnings = 0u128;
+        let mut stream_b_earnings = 0u128;
+        let mut stream_c_earnings = 0u128;
+        let mut total_fees_collected = 0u128;
+
+        let recent_blocks = blocks.iter().rev().take(100);
+        for block in recent_blocks {
+            match block.header.stream_type {
+                crate::types::StreamType::StreamA => {
+                    stream_a_blocks += 1;
+                    stream_a_earnings += crate::mining::STREAM_A_REWARD;
+                }
+                crate::types::StreamType::StreamB => {
+                    stream_b_blocks += 1;
+                    stream_b_earnings += crate::mining::STREAM_B_REWARD;
+                }
+                crate::types::StreamType::StreamC => {
+                    stream_c_blocks += 1;
+                    let block_fees: u128 = block.transactions.iter().map(|tx| tx.fee).sum();
+                    stream_c_earnings += block_fees;
+                    total_fees_collected += block_fees;
+                }
+            }
+        }
+
+        let total_earnings = stream_a_earnings + stream_b_earnings + stream_c_earnings;
+
+        // Calculate hashrate estimates (blocks per hour from 100 block sample)
+        let stream_a_hashrate = stream_a_blocks as f64 * 36.0;
+        let stream_b_hashrate = stream_b_blocks as f64 * 36.0;
+        let stream_c_hashrate = stream_c_blocks as f64 * 36.0;
+
+        drop(blockchain);
+
+        Ok(json!({
+            "total_blocks": total_blocks,
+            "recent_sample_size": 100,
+            "streams": {
+                "stream_a": {
+                    "blocks_mined": stream_a_blocks,
+                    "earnings": format!("0x{:x}", stream_a_earnings),
+                    "hashrate_estimate_blocks_per_hour": stream_a_hashrate,
+                    "block_time_seconds": 10,
+                    "reward_per_block": format!("0x{:x}", crate::mining::STREAM_A_REWARD),
+                },
+                "stream_b": {
+                    "blocks_mined": stream_b_blocks,
+                    "earnings": format!("0x{:x}", stream_b_earnings),
+                    "hashrate_estimate_blocks_per_hour": stream_b_hashrate,
+                    "block_time_seconds": 1,
+                    "reward_per_block": format!("0x{:x}", crate::mining::STREAM_B_REWARD),
+                },
+                "stream_c": {
+                    "blocks_mined": stream_c_blocks,
+                    "earnings": format!("0x{:x}", stream_c_earnings),
+                    "hashrate_estimate_blocks_per_hour": stream_c_hashrate,
+                    "block_time_seconds": 0.1,
+                    "fees_collected": format!("0x{:x}", total_fees_collected),
+                },
+            },
+            "total_earnings_recent": format!("0x{:x}", total_earnings),
+            "fees_collected": format!("0x{:x}", total_fees_collected),
+        }))
     }
     
     /// Send a signed transaction to the mining pool
@@ -2122,6 +2199,76 @@ impl RpcServer {
                 data: None,
             })
         }
+    }
+    
+    /// mds_getAddressTransactions - Get transaction history for an address
+    async fn mds_get_address_transactions(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+        
+        let params_array = params.as_array().ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params format".to_string(),
+            data: None,
+        })?;
+        
+        let address_str = params_array.get(0)
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Invalid address parameter".to_string(),
+                data: None,
+            })?;
+        
+        let address = parse_address(address_str)?;
+        
+        // Optional limit parameter (default 50)
+        let limit = params_array.get(1)
+            .and_then(|v| v.as_u64())
+            .unwrap_or(50) as usize;
+        
+        let blockchain = self.blockchain.read().await;
+        let mut transactions = Vec::new();
+        
+        // Iterate through all blocks in reverse to get most recent first
+        let blocks: Vec<_> = blockchain.get_blocks().iter().rev().take(1000).cloned().collect();
+        
+        for block in blocks {
+            for tx in &block.transactions {
+                // Check if address is involved (sender or receiver)
+                if tx.from == address || tx.to == address {
+                    transactions.push(serde_json::json!({
+                        "hash": format!("0x{}", hex::encode(tx.hash)),
+                        "from": format!("0x{}", hex::encode(tx.from)),
+                        "to": format!("0x{}", hex::encode(tx.to)),
+                        "value": format!("0x{:x}", tx.value),
+                        "fee": format!("0x{:x}", tx.fee),
+                        "nonce": format!("0x{:x}", tx.nonce),
+                        "block_number": format!("0x{:x}", block.header.block_number),
+                        "block_hash": format!("0x{}", hex::encode(block.hash)),
+                        "timestamp": format!("0x{:x}", block.header.timestamp),
+                        "direction": if tx.from == address { "outgoing" } else { "incoming" },
+                    }));
+                    
+                    if transactions.len() >= limit {
+                        break;
+                    }
+                }
+            }
+            if transactions.len() >= limit {
+                break;
+            }
+        }
+        
+        Ok(serde_json::json!({
+            "address": format!("0x{}", hex::encode(address)),
+            "total": transactions.len(),
+            "limit": limit,
+            "transactions": transactions,
+        }))
     }
     
     /// mds_detectAnomalies - Detect anomalies for an address

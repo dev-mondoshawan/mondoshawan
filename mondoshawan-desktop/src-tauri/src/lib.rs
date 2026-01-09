@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::{Arc, Mutex};
+use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
 use tauri::State;
 
 // ----------------------------------------------------------------------------
@@ -45,6 +48,124 @@ impl KeyStore {
         let mut addr = [0u8; 20];
         addr.copy_from_slice(&result[12..32]);
         Some(addr)
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Address Book
+// ----------------------------------------------------------------------------
+
+#[derive(Serialize, Deserialize, Clone)]
+struct Contact {
+    name: String,
+    address: String,
+    notes: Option<String>,
+}
+
+struct AddressBook {
+    contacts: HashMap<String, Contact>, // key = address
+    storage_path: PathBuf,
+}
+
+impl AddressBook {
+    fn new(storage_path: PathBuf) -> Self {
+        let mut book = Self {
+            contacts: HashMap::new(),
+            storage_path,
+        };
+        book.load();
+        book
+    }
+
+    fn load(&mut self) {
+        if let Ok(data) = fs::read_to_string(&self.storage_path) {
+            if let Ok(contacts) = serde_json::from_str(&data) {
+                self.contacts = contacts;
+            }
+        }
+    }
+
+    fn save(&self) -> Result<(), String> {
+        let data = serde_json::to_string_pretty(&self.contacts)
+            .map_err(|e| format!("Serialize error: {}", e))?;
+        fs::write(&self.storage_path, data)
+            .map_err(|e| format!("Write error: {}", e))?;
+        Ok(())
+    }
+
+    fn add_contact(&mut self, contact: Contact) -> Result<(), String> {
+        self.contacts.insert(contact.address.clone(), contact);
+        self.save()
+    }
+
+    fn remove_contact(&mut self, address: &str) -> Result<(), String> {
+        self.contacts.remove(address);
+        self.save()
+    }
+
+    fn get_contacts(&self) -> Vec<Contact> {
+        self.contacts.values().cloned().collect()
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Multi-Account Wallet
+// ----------------------------------------------------------------------------
+
+#[derive(Serialize, Deserialize, Clone)]
+struct Account {
+    name: String,
+    address: String,
+    // Note: We don't store private keys, only addresses. Keys stay in KeyStore.
+}
+
+struct Accounts {
+    accounts: Vec<Account>,
+    storage_path: PathBuf,
+}
+
+impl Accounts {
+    fn new(storage_path: PathBuf) -> Self {
+        let mut accts = Self {
+            accounts: Vec::new(),
+            storage_path,
+        };
+        accts.load();
+        accts
+    }
+
+    fn load(&mut self) {
+        if let Ok(data) = fs::read_to_string(&self.storage_path) {
+            if let Ok(accounts) = serde_json::from_str(&data) {
+                self.accounts = accounts;
+            }
+        }
+    }
+
+    fn save(&self) -> Result<(), String> {
+        let data = serde_json::to_string_pretty(&self.accounts)
+            .map_err(|e| format!("Serialize error: {}", e))?;
+        fs::write(&self.storage_path, data)
+            .map_err(|e| format!("Write error: {}", e))?;
+        Ok(())
+    }
+
+    fn add_account(&mut self, account: Account) -> Result<(), String> {
+        // Check for duplicates
+        if !self.accounts.iter().any(|a| a.address == account.address) {
+            self.accounts.push(account);
+            self.save()?;
+        }
+        Ok(())
+    }
+
+    fn remove_account(&mut self, address: &str) -> Result<(), String> {
+        self.accounts.retain(|a| a.address != address);
+        self.save()
+    }
+
+    fn get_accounts(&self) -> Vec<Account> {
+        self.accounts.clone()
     }
 }
 
@@ -202,6 +323,11 @@ async fn get_shard_stats(state: State<'_, RpcConfig>) -> Result<Value, String> {
     call_rpc(&state, "mds_getShardStats", None).await
 }
 
+#[tauri::command]
+async fn get_mining_dashboard(state: State<'_, RpcConfig>) -> Result<Value, String> {
+    call_rpc(&state, "mds_getMiningDashboard", None).await
+}
+
 // ----------------------------------------------------------------------------
 // Key Management Commands
 // ----------------------------------------------------------------------------
@@ -258,6 +384,79 @@ fn export_private_key(keystore: State<'_, Arc<Mutex<KeyStore>>>) -> Result<Strin
     } else {
         Err("No key loaded".to_string())
     }
+}
+
+// ----------------------------------------------------------------------------
+// Transaction History
+// ----------------------------------------------------------------------------
+
+#[tauri::command]
+async fn get_address_transactions(
+    rpc: State<'_, RpcConfig>,
+    address: String,
+    limit: Option<u64>,
+) -> Result<Value, String> {
+    let params = Some(serde_json::json!([address, limit.unwrap_or(50)]));
+    call_rpc(&rpc, "mds_getAddressTransactions", params).await
+}
+
+// ----------------------------------------------------------------------------
+// Address Book Commands
+// ----------------------------------------------------------------------------
+
+#[tauri::command]
+fn add_contact(
+    address_book: State<'_, Arc<Mutex<AddressBook>>>,
+    name: String,
+    address: String,
+    notes: Option<String>,
+) -> Result<(), String> {
+    let mut book = address_book.lock().map_err(|e| e.to_string())?;
+    book.add_contact(Contact { name, address, notes })
+}
+
+#[tauri::command]
+fn remove_contact(
+    address_book: State<'_, Arc<Mutex<AddressBook>>>,
+    address: String,
+) -> Result<(), String> {
+    let mut book = address_book.lock().map_err(|e| e.to_string())?;
+    book.remove_contact(&address)
+}
+
+#[tauri::command]
+fn get_contacts(address_book: State<'_, Arc<Mutex<AddressBook>>>) -> Result<Vec<Contact>, String> {
+    let book = address_book.lock().map_err(|e| e.to_string())?;
+    Ok(book.get_contacts())
+}
+
+// ----------------------------------------------------------------------------
+// Multi-Account Commands
+// ----------------------------------------------------------------------------
+
+#[tauri::command]
+fn add_account(
+    accounts: State<'_, Arc<Mutex<Accounts>>>,
+    name: String,
+    address: String,
+) -> Result<(), String> {
+    let mut accts = accounts.lock().map_err(|e| e.to_string())?;
+    accts.add_account(Account { name, address })
+}
+
+#[tauri::command]
+fn remove_account(
+    accounts: State<'_, Arc<Mutex<Accounts>>>,
+    address: String,
+) -> Result<(), String> {
+    let mut accts = accounts.lock().map_err(|e| e.to_string())?;
+    accts.remove_account(&address)
+}
+
+#[tauri::command]
+fn get_accounts(accounts: State<'_, Arc<Mutex<Accounts>>>) -> Result<Vec<Account>, String> {
+    let accts = accounts.lock().map_err(|e| e.to_string())?;
+    Ok(accts.get_accounts())
 }
 
 // ----------------------------------------------------------------------------
@@ -389,6 +588,18 @@ async fn send_transaction(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let keystore = Arc::new(Mutex::new(KeyStore::new()));
+    
+    // Get app data directory for storage (use current dir as fallback for MVP)
+    let app_dir = std::env::current_dir()
+        .unwrap_or_else(|_| PathBuf::from("."));
+    std::fs::create_dir_all(&app_dir).ok();
+    
+    let address_book = Arc::new(Mutex::new(AddressBook::new(
+        app_dir.join("address_book.json")
+    )));
+    let accounts = Arc::new(Mutex::new(Accounts::new(
+        app_dir.join("accounts.json")
+    )));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -397,6 +608,8 @@ pub fn run() {
             api_key: None,
         })
         .manage(keystore)
+        .manage(address_book)
+        .manage(accounts)
         .invoke_handler(tauri::generate_handler![
             get_node_status,
             get_mining_status,
@@ -413,6 +626,14 @@ pub fn run() {
             get_dag_stats,
             get_tps,
             get_shard_stats,
+            get_address_transactions,
+            add_contact,
+            remove_contact,
+            get_contacts,
+            add_account,
+            remove_account,
+            get_accounts,
+            get_mining_dashboard,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Mondoshawan Desktop");

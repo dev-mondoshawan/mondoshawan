@@ -1,7 +1,40 @@
 // Mondoshawan Block Explorer - Frontend Application
 
-const API_BASE = 'http://localhost:8081/api';
-const RPC_BASE = 'http://localhost:8545';
+// RPC Configuration - Can be set via URL parameter or localStorage
+const urlParams = new URLSearchParams(window.location.search);
+const RPC_BASE = urlParams.get('rpc') || 
+                 localStorage.getItem('rpc_endpoint') || 
+                 'http://localhost:8545';
+
+// Store RPC endpoint for future use
+if (!localStorage.getItem('rpc_endpoint')) {
+    localStorage.setItem('rpc_endpoint', RPC_BASE);
+}
+
+// Generic JSON-RPC call helper
+async function rpcCall(method, params = []) {
+    const response = await fetch(RPC_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            jsonrpc: '2.0',
+            method: method,
+            params: params,
+            id: 1
+        })
+    });
+    
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    if (data.error) {
+        throw new Error(data.error.message || 'RPC error');
+    }
+    
+    return data.result;
+}
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
@@ -20,20 +53,32 @@ document.addEventListener('DOMContentLoaded', () => {
 // Load dashboard statistics
 async function loadDashboard() {
     try {
-        const [networkStats, chainStats] = await Promise.all([
-            fetch(`${API_BASE}/stats/network`).then(r => r.json()),
-            fetch(`${API_BASE}/stats/chain`).then(r => r.json())
+        // Get all stats in parallel using JSON-RPC
+        const [blockNumber, dagStats, tps, peerCount, nodeStatus] = await Promise.all([
+            rpcCall('eth_blockNumber').catch(() => '0x0'),
+            rpcCall('mds_getDagStats').catch(() => ({ total_blocks: 0, total_transactions: 0 })),
+            rpcCall('mds_getTps', [60]).catch(() => 0),  // 60-second window
+            rpcCall('net_peerCount').catch(() => '0x0'),
+            rpcCall('mds_getNodeStatus').catch(() => null)
         ]);
 
-        document.getElementById('total-blocks').textContent = networkStats.total_blocks || 0;
-        document.getElementById('total-transactions').textContent = networkStats.total_transactions || 0;
-        document.getElementById('peers-connected').textContent = networkStats.peers_connected || 0;
-        document.getElementById('tps').textContent = networkStats.transactions_per_second?.toFixed(2) || '0.00';
+        // Parse hex values
+        const latestBlock = parseInt(blockNumber, 16) || 0;
+        const peers = parseInt(peerCount, 16) || 0;
+        const tpsValue = parseFloat(tps) || 0;
+        const totalTransactions = dagStats.total_transactions || 0;
+
+        // Update UI
+        document.getElementById('total-blocks').textContent = latestBlock;
+        document.getElementById('total-transactions').textContent = totalTransactions;
+        document.getElementById('peers-connected').textContent = peers;
+        document.getElementById('tps').textContent = tpsValue.toFixed(2);
         
         // Update last updated timestamp
         const now = new Date();
         const timeStr = now.toLocaleTimeString();
         document.getElementById('update-time').textContent = `Updated: ${timeStr}`;
+        document.getElementById('update-indicator').style.background = '#10b981';
     } catch (error) {
         console.error('Error loading dashboard:', error);
         document.getElementById('total-blocks').textContent = 'Error';
@@ -45,24 +90,52 @@ async function loadDashboard() {
 // Load recent blocks
 async function loadRecentBlocks() {
     try {
-        const response = await fetch(`${API_BASE}/blocks/recent?limit=10`);
-        const blocks = await response.json();
+        // Get latest block number
+        const blockNumberHex = await rpcCall('eth_blockNumber');
+        const latestBlock = parseInt(blockNumberHex, 16);
+        
+        if (latestBlock === 0) {
+            document.getElementById('blocks-list').innerHTML = '<p class="loading">No blocks found</p>';
+            return;
+        }
+        
+        // Get last 10 blocks
+        const blockPromises = [];
+        const limit = 10;
+        for (let i = 0; i < limit && (latestBlock - i) >= 0; i++) {
+            const blockNum = latestBlock - i;
+            blockPromises.push(
+                rpcCall('eth_getBlockByNumber', [`0x${blockNum.toString(16)}`, true])
+                    .catch(() => null)
+            );
+        }
+        
+        const blocks = await Promise.all(blockPromises);
+        
+        // Filter out null blocks
+        const validBlocks = blocks.filter(b => b !== null);
         
         const blocksList = document.getElementById('blocks-list');
         
-        if (blocks.length === 0) {
+        if (validBlocks.length === 0) {
             blocksList.innerHTML = '<p class="loading">No blocks found</p>';
             return;
         }
         
-        blocksList.innerHTML = blocks.map(block => `
-            <div class="block-item">
-                <h3>Block #${block.number}</h3>
-                <p><strong>Hash:</strong> <code>${block.hash}</code></p>
-                <p><strong>Timestamp:</strong> ${new Date(block.timestamp * 1000).toLocaleString()}</p>
-                <p><strong>Transactions:</strong> ${block.transaction_count}</p>
-            </div>
-        `).join('');
+        blocksList.innerHTML = validBlocks.map(block => {
+            const blockNum = parseInt(block.number, 16);
+            const timestamp = parseInt(block.timestamp, 16);
+            const txCount = block.transactions ? block.transactions.length : 0;
+            
+            return `
+                <div class="block-item">
+                    <h3>Block #${blockNum}</h3>
+                    <p><strong>Hash:</strong> <code>${block.hash}</code></p>
+                    <p><strong>Timestamp:</strong> ${new Date(timestamp * 1000).toLocaleString()}</p>
+                    <p><strong>Transactions:</strong> ${txCount}</p>
+                </div>
+            `;
+        }).join('');
     } catch (error) {
         console.error('Error loading blocks:', error);
         document.getElementById('blocks-list').innerHTML = '<p class="error">Error loading blocks</p>';
@@ -72,8 +145,39 @@ async function loadRecentBlocks() {
 // Load recent transactions
 async function loadRecentTransactions() {
     try {
-        const response = await fetch(`${API_BASE}/transactions/recent?limit=10`);
-        const transactions = await response.json();
+        // Get latest block number
+        const blockNumberHex = await rpcCall('eth_blockNumber');
+        const latestBlock = parseInt(blockNumberHex, 16);
+        
+        if (latestBlock === 0) {
+            document.getElementById('transactions-list').innerHTML = '<p class="loading">No transactions found</p>';
+            return;
+        }
+        
+        // Get transactions from recent blocks
+        const transactions = [];
+        const maxBlocks = 5;  // Check last 5 blocks
+        const limit = 10;
+        
+        for (let i = 0; i < maxBlocks && transactions.length < limit && (latestBlock - i) >= 0; i++) {
+            const blockNum = latestBlock - i;
+            try {
+                const block = await rpcCall('eth_getBlockByNumber', [`0x${blockNum.toString(16)}`, true]);
+                
+                if (block && block.transactions) {
+                    for (const tx of block.transactions) {
+                        if (transactions.length >= limit) break;
+                        transactions.push({
+                            ...tx,
+                            block_number: blockNum,
+                            block_hash: block.hash
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error(`Error loading block ${blockNum}:`, error);
+            }
+        }
         
         const transactionsList = document.getElementById('transactions-list');
         
@@ -82,25 +186,22 @@ async function loadRecentTransactions() {
             return;
         }
         
-        // Load risk scores for transactions (async, will update after initial render)
+        // Render transactions
         transactionsList.innerHTML = transactions.map(tx => {
-            const shardInfo = tx.fromShard !== undefined ? `
-                <p><strong>Shard:</strong> ${tx.fromShard} → ${tx.toShard} ${tx.isCrossShard ? '<span class="cross-shard-badge">Cross-Shard</span>' : ''}</p>
-            ` : '';
+            const value = parseInt(tx.value || '0x0', 16) / 1e18;
             return `
-            <div class="transaction-item" data-tx-hash="${tx.hash}">
-                <h3>Transaction</h3>
-                <p><strong>Hash:</strong> <code>${tx.hash}</code></p>
-                <p><strong>From:</strong> <code>${tx.from}</code></p>
-                <p><strong>To:</strong> <code>${tx.to || 'N/A'}</code></p>
-                ${shardInfo}
-                <p><strong>Value:</strong> ${tx.value}</p>
-                <p><strong>Status:</strong> ${tx.status}</p>
-                <div class="risk-indicator" data-tx="${tx.hash}">
-                    <span class="risk-loading">Loading risk analysis...</span>
+                <div class="transaction-item" data-tx-hash="${tx.hash}">
+                    <h3>Transaction</h3>
+                    <p><strong>Hash:</strong> <code>${tx.hash}</code></p>
+                    <p><strong>From:</strong> <code>${tx.from}</code></p>
+                    <p><strong>To:</strong> <code>${tx.to || 'Contract Creation'}</code></p>
+                    <p><strong>Value:</strong> ${value.toFixed(6)} MSHW</p>
+                    <p><strong>Block:</strong> #${tx.block_number}</p>
+                    <div class="risk-indicator" data-tx="${tx.hash}">
+                        <span class="risk-loading">Loading risk analysis...</span>
+                    </div>
                 </div>
-            </div>
-        `;
+            `;
         }).join('');
         
         // Load risk scores asynchronously
@@ -113,7 +214,7 @@ async function loadRecentTransactions() {
                     const riskClass = getRiskClass(risk.score);
                     indicator.innerHTML = `
                         <span class="risk-badge ${riskClass}">Risk: ${riskPercent}%</span>
-                        ${risk.labels.length > 0 ? `
+                        ${risk.labels && risk.labels.length > 0 ? `
                             <span class="risk-label-preview">${risk.labels[0]}</span>
                         ` : ''}
                     `;
@@ -146,54 +247,46 @@ function setupSearch() {
                 // Likely a block hash or transaction hash
                 // Try block first
                 try {
-                    const response = await fetch(`${API_BASE}/blocks/${query}`);
-                    if (response.ok) {
-                        const block = await response.json();
-                        await displayBlock(block);
+                    const block = await rpcCall('eth_getBlockByHash', [query, true]);
+                    if (block) {
+                        await displayBlockFromRpc(block);
                         return;
                     }
-                } catch (e) {}
+                } catch (e) {
+                    console.log('Not a block hash, trying transaction...');
+                }
                 
                 // Try transaction
                 try {
-                    const response = await fetch(`${API_BASE}/transactions/${query}`);
-                    if (response.ok) {
-                        const tx = await response.json();
+                    const tx = await rpcCall('eth_getTransactionByHash', [query]);
+                    if (tx) {
                         await displayTransaction(tx);
                         await explainTransaction(tx.hash);
                         return;
                     }
-                } catch (e) {}
+                } catch (e) {
+                    console.log('Not a transaction hash');
+                }
             } else if (query.startsWith('0x') && query.length === 42) {
-                // Likely an address
-                try {
-                    const response = await fetch(`${API_BASE}/addresses/${query}`);
-                    if (response.ok) {
-                        const address = await response.json();
-                        await displayAddress(address);
-                        await explainAddress(address.address || address);
-                        return;
-                    }
-                } catch (e) {}
-                
-                // If API doesn't have address info, still show with risk score
+                // Likely an address - use RPC to get balance and info
                 await displayAddress(query);
                 await explainAddress(query);
                 return;
             } else if (!isNaN(query)) {
                 // Block number
-                const response = await fetch(`${API_BASE}/blocks/${query}`);
-                if (response.ok) {
-                    const block = await response.json();
-                    await displayBlock(block);
-                    return;
+                try {
+                    const block = await rpcCall('eth_getBlockByNumber', [`0x${parseInt(query).toString(16)}`, true]);
+                    if (block) {
+                        await displayBlockFromRpc(block);
+                        return;
+                    }
+                } catch (e) {
+                    console.error('Error loading block:', e);
                 }
             }
             
-            // General search
-            const response = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`);
-            const results = await response.json();
-            displaySearchResults(results);
+            // If we get here, search failed
+            alert('No results found. Please check your search query.');
         } catch (error) {
             console.error('Search error:', error);
             alert('Search failed. Please try again.');

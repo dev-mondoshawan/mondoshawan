@@ -126,7 +126,11 @@ mondoshawan-website/
 mondoshawan-website-legendary/
 
 # Desktop application (separate project)
-mondoshawan-desktop/
+# mondoshawan-desktop/  # Now included in public repo
+
+# Desktop app user data (user-specific, should not be committed)
+mondoshawan-desktop/src-tauri/accounts.json
+mondoshawan-desktop/src-tauri/address_book.json
 
 # Test output files
 *.txt

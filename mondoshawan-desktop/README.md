@@ -14,6 +14,12 @@
 
 ✅ **Performance Metrics** — Real-time TPS tracking, DAG consensus metrics, and per-shard statistics
 
+✅ **Address Book** — Save and manage frequently used addresses with names and notes
+
+✅ **Multi-Account Management** — Track multiple accounts and switch between them easily
+
+✅ **Transaction History** — View transaction history for any address with detailed information
+
 ✅ **Native Desktop** — Built with Tauri (Rust + React) for Windows, macOS, and Linux
 
 ---
@@ -79,6 +85,25 @@ The desktop window will open automatically.
 - Per-shard statistics (if sharding enabled)
 - Cross-shard transaction flows
 
+### History Tab
+- View transaction history for any address
+- Filter by address, transaction type, or date range
+- Detailed transaction information (hash, from, to, value, fee, status)
+- Export transaction history
+
+### Address Book (Send Tab)
+- **Add Contact**: Save frequently used addresses with names and notes
+- **Remove Contact**: Delete contacts you no longer need
+- **Quick Select**: Select from saved contacts when sending transactions
+- Data persisted to `address_book.json` in app directory
+
+### Multi-Account Management (Wallet Tab)
+- **Add Account**: Track multiple wallet addresses with custom names
+- **Remove Account**: Remove accounts you no longer need
+- **Switch Accounts**: Quickly switch between tracked accounts
+- **Account Overview**: View all accounts and their balances at a glance
+- Data persisted to `accounts.json` in app directory
+
 ---
 
 ## Building for Production
@@ -107,6 +132,7 @@ Output: `src-tauri/target/release/bundle/appimage/mondoshawan-desktop_0.1.0_amd6
 
 **Current Implementation (MVP):**
 - Keys stored **in memory only** (lost when app closes)
+- Address book and account data stored in JSON files (unencrypted)
 - No encryption at rest
 - No password protection
 

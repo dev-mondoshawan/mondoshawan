@@ -47,7 +47,7 @@ type ShardStats = {
 };
 
 function App() {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "wallet" | "send" | "explorer" | "metrics">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "wallet" | "send" | "history" | "explorer" | "metrics">("dashboard");
   
   // Node & mining state
   const [nodeStatus, setNodeStatus] = useState<NodeStatus | null>(null);
@@ -72,6 +72,25 @@ function App() {
   // Metrics state
   const [tps, setTps] = useState<string | null>(null);
   const [shardStats, setShardStats] = useState<ShardStats | null>(null);
+  const [miningDashboard, setMiningDashboard] = useState<any | null>(null);
+  
+  // Transaction History state
+  const [txHistory, setTxHistory] = useState<any[]>([]);
+  const [txHistoryLimit, _setTxHistoryLimit] = useState<number>(50);
+  
+  // Address Book state
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [showAddContact, setShowAddContact] = useState(false);
+  const [contactName, setContactName] = useState("");
+  const [contactAddress, setContactAddress] = useState("");
+  const [contactNotes, setContactNotes] = useState("");
+  
+  // Multi-Account state
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [showAddAccount, setShowAddAccount] = useState(false);
+  const [accountName, setAccountName] = useState("");
+  const [accountAddress, setAccountAddress] = useState("");
+  const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
   
   // Common state
   const [loading, setLoading] = useState(false);
@@ -238,16 +257,139 @@ function App() {
     setLoading(true);
     setError(null);
     try {
-      const [tpsData, dagData, shardData] = await Promise.all([
+      const [tpsData, dagData, shardData, miningData] = await Promise.all([
         invoke<any>("get_tps"),
         invoke<DagStats>("get_dag_stats"),
         invoke<ShardStats>("get_shard_stats"),
+        invoke<any>("get_mining_dashboard"),
       ]);
       setTps(tpsData);
       setDagStats(dagData);
       setShardStats(shardData);
+      setMiningDashboard(miningData);
     } catch (e: any) {
       setError(e?.toString?.() ?? "Failed to fetch metrics");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Transaction History
+  async function loadTxHistory() {
+    if (!walletAddr) {
+      setError("No wallet loaded");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await invoke<any>("get_address_transactions", {
+        address: walletAddr,
+        limit: txHistoryLimit,
+      });
+      setTxHistory(result.transactions || []);
+    } catch (e: any) {
+      setError(e?.toString?.() ?? "Failed to load transaction history");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Address Book Functions
+  async function loadContacts() {
+    try {
+      const result = await invoke<any[]>("get_contacts");
+      setContacts(result);
+    } catch (e: any) {
+      setError(e?.toString?.() ?? "Failed to load contacts");
+    }
+  }
+
+  async function addContact() {
+    if (!contactName || !contactAddress) {
+      setError("Name and address required");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await invoke("add_contact", {
+        name: contactName,
+        address: contactAddress,
+        notes: contactNotes || null,
+      });
+      setContactName("");
+      setContactAddress("");
+      setContactNotes("");
+      setShowAddContact(false);
+      await loadContacts();
+    } catch (e: any) {
+      setError(e?.toString?.() ?? "Failed to add contact");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function removeContact(address: string) {
+    setLoading(true);
+    setError(null);
+    try {
+      await invoke("remove_contact", { address });
+      await loadContacts();
+    } catch (e: any) {
+      setError(e?.toString?.() ?? "Failed to remove contact");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Multi-Account Functions
+  async function loadAccounts() {
+    try {
+      const result = await invoke<any[]>("get_accounts");
+      setAccounts(result);
+      if (result.length > 0 && !selectedAccount) {
+        setSelectedAccount(result[0].address);
+      }
+    } catch (e: any) {
+      setError(e?.toString?.() ?? "Failed to load accounts");
+    }
+  }
+
+  async function addAccount() {
+    if (!accountName || !accountAddress) {
+      setError("Name and address required");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await invoke("add_account", {
+        name: accountName,
+        address: accountAddress,
+      });
+      setAccountName("");
+      setAccountAddress("");
+      setShowAddAccount(false);
+      await loadAccounts();
+    } catch (e: any) {
+      setError(e?.toString?.() ?? "Failed to add account");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function removeAccount(address: string) {
+    setLoading(true);
+    setError(null);
+    try {
+      await invoke("remove_account", { address });
+      await loadAccounts();
+      if (selectedAccount === address && accounts.length > 0) {
+        setSelectedAccount(accounts[0].address);
+      }
+    } catch (e: any) {
+      setError(e?.toString?.() ?? "Failed to remove account");
     } finally {
       setLoading(false);
     }
@@ -260,6 +402,17 @@ function App() {
       return () => clearInterval(interval);
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === "history") {
+      loadTxHistory();
+    }
+  }, [activeTab, walletAddr]);
+
+  useEffect(() => {
+    loadContacts();
+    loadAccounts();
+  }, []);
 
   useEffect(() => {
     refresh();
@@ -390,6 +543,28 @@ function App() {
           }}
         >
           Send
+        </button>
+        <button
+          onClick={() => setActiveTab("history")}
+          style={{
+            padding: "0.75rem 1.5rem",
+            borderRadius: 8,
+            border: "none",
+            cursor: "pointer",
+            background: activeTab === "history" 
+              ? "linear-gradient(135deg, #6366f1, #4f46e5)" 
+              : "rgba(30, 41, 59, 0.7)",
+            color: "#f8fafc",
+            fontWeight: "600",
+            fontSize: "0.95rem",
+            boxShadow: activeTab === "history" 
+              ? "0 4px 12px rgba(99, 102, 241, 0.3)" 
+              : "none",
+            transition: "all 0.3s ease",
+            backdropFilter: "blur(12px)"
+          }}
+        >
+          History
         </button>
         <button
           onClick={() => setActiveTab("explorer")}
@@ -742,6 +917,371 @@ function App() {
         </section>
       )}
 
+      {activeTab === "wallet" && (
+        <>
+          {/* Address Book Section */}
+          <section
+            style={{
+              marginTop: "1.5rem",
+              padding: "1.5rem",
+              borderRadius: 16,
+              background: "rgba(30, 41, 59, 0.7)",
+              backdropFilter: "blur(12px)",
+              border: "1px solid rgba(236, 72, 153, 0.2)",
+              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+              <h2 style={{ fontSize: "1.4rem", fontWeight: "600", color: "#f8fafc" }}>
+                📖 Address Book
+              </h2>
+              <button
+                onClick={() => setShowAddContact(!showAddContact)}
+                style={{
+                  padding: "0.5rem 1rem",
+                  borderRadius: 8,
+                  border: "none",
+                  background: "linear-gradient(135deg, #ec4899, #db2777)",
+                  color: "white",
+                  cursor: "pointer",
+                  fontWeight: "600",
+                  fontSize: "0.9rem",
+                  boxShadow: "0 4px 12px rgba(236, 72, 153, 0.3)",
+                }}
+              >
+                {showAddContact ? "❌ Cancel" : "➕ Add Contact"}
+              </button>
+            </div>
+
+            {showAddContact && (
+              <div style={{
+                marginBottom: "1.5rem",
+                padding: "1rem",
+                background: "rgba(236, 72, 153, 0.1)",
+                border: "1px solid rgba(236, 72, 153, 0.3)",
+                borderRadius: 10,
+              }}>
+                <div style={{ marginBottom: "0.75rem" }}>
+                  <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontWeight: "500", fontSize: "0.9rem" }}>
+                    Name
+                  </label>
+                  <input
+                    type="text"
+                    value={contactName}
+                    onChange={(e) => setContactName(e.target.value)}
+                    placeholder="Alice"
+                    style={{
+                      width: "100%",
+                      padding: "0.65rem",
+                      borderRadius: 8,
+                      border: "1px solid rgba(236, 72, 153, 0.3)",
+                      background: "rgba(2, 6, 23, 0.6)",
+                      color: "#e5e7eb",
+                      fontSize: "0.9rem",
+                    }}
+                  />
+                </div>
+                <div style={{ marginBottom: "0.75rem" }}>
+                  <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontWeight: "500", fontSize: "0.9rem" }}>
+                    Address
+                  </label>
+                  <input
+                    type="text"
+                    value={contactAddress}
+                    onChange={(e) => setContactAddress(e.target.value)}
+                    placeholder="0x..."
+                    style={{
+                      width: "100%",
+                      padding: "0.65rem",
+                      borderRadius: 8,
+                      border: "1px solid rgba(236, 72, 153, 0.3)",
+                      background: "rgba(2, 6, 23, 0.6)",
+                      color: "#e5e7eb",
+                      fontSize: "0.9rem",
+                      fontFamily: "'JetBrains Mono', monospace",
+                    }}
+                  />
+                </div>
+                <div style={{ marginBottom: "1rem" }}>
+                  <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontWeight: "500", fontSize: "0.9rem" }}>
+                    Notes (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={contactNotes}
+                    onChange={(e) => setContactNotes(e.target.value)}
+                    placeholder="Friend, exchange, etc."
+                    style={{
+                      width: "100%",
+                      padding: "0.65rem",
+                      borderRadius: 8,
+                      border: "1px solid rgba(236, 72, 153, 0.3)",
+                      background: "rgba(2, 6, 23, 0.6)",
+                      color: "#e5e7eb",
+                      fontSize: "0.9rem",
+                    }}
+                  />
+                </div>
+                <button
+                  onClick={addContact}
+                  disabled={loading}
+                  style={{
+                    padding: "0.65rem 1.5rem",
+                    borderRadius: 8,
+                    border: "none",
+                    background: loading ? "rgba(236, 72, 153, 0.5)" : "linear-gradient(135deg, #ec4899, #db2777)",
+                    color: "white",
+                    cursor: loading ? "not-allowed" : "pointer",
+                    fontWeight: "600",
+                    fontSize: "0.95rem",
+                    boxShadow: loading ? "none" : "0 4px 12px rgba(236, 72, 153, 0.3)",
+                    opacity: loading ? 0.6 : 1,
+                    width: "100%",
+                  }}
+                >
+                  {loading ? "⏳ Saving..." : "💾 Save Contact"}
+                </button>
+              </div>
+            )}
+
+            {contacts.length === 0 ? (
+              <div style={{ padding: "1.5rem", textAlign: "center", color: "#94a3b8", fontStyle: "italic" }}>
+                No contacts yet. Add your first contact!
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: "0.75rem" }}>
+                {contacts.map((contact: any) => (
+                  <div
+                    key={contact.address}
+                    style={{
+                      padding: "1rem",
+                      background: "rgba(236, 72, 153, 0.1)",
+                      border: "1px solid rgba(236, 72, 153, 0.2)",
+                      borderRadius: 10,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: "1.1rem", fontWeight: "600", color: "#ec4899", marginBottom: "0.25rem" }}>
+                        {contact.name}
+                      </div>
+                      <div style={{ 
+                        fontSize: "0.85rem", 
+                        color: "#06b6d4",
+                        fontFamily: "'JetBrains Mono', monospace",
+                        wordBreak: "break-all",
+                        marginBottom: "0.25rem"
+                      }}>
+                        {contact.address}
+                      </div>
+                      {contact.notes && (
+                        <div style={{ fontSize: "0.8rem", color: "#94a3b8", fontStyle: "italic" }}>
+                          {contact.notes}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => removeContact(contact.address)}
+                      disabled={loading}
+                      style={{
+                        padding: "0.5rem 1rem",
+                        borderRadius: 8,
+                        border: "none",
+                        background: "linear-gradient(135deg, #ef4444, #dc2626)",
+                        color: "white",
+                        cursor: loading ? "not-allowed" : "pointer",
+                        fontWeight: "600",
+                        fontSize: "0.85rem",
+                        opacity: loading ? 0.6 : 1,
+                      }}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Multi-Account Section */}
+          <section
+            style={{
+              marginTop: "1.5rem",
+              padding: "1.5rem",
+              borderRadius: 16,
+              background: "rgba(30, 41, 59, 0.7)",
+              backdropFilter: "blur(12px)",
+              border: "1px solid rgba(6, 182, 212, 0.2)",
+              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+              <h2 style={{ fontSize: "1.4rem", fontWeight: "600", color: "#f8fafc" }}>
+                💼 My Accounts
+              </h2>
+              <button
+                onClick={() => setShowAddAccount(!showAddAccount)}
+                style={{
+                  padding: "0.5rem 1rem",
+                  borderRadius: 8,
+                  border: "none",
+                  background: "linear-gradient(135deg, #06b6d4, #0891b2)",
+                  color: "white",
+                  cursor: "pointer",
+                  fontWeight: "600",
+                  fontSize: "0.9rem",
+                  boxShadow: "0 4px 12px rgba(6, 182, 212, 0.3)",
+                }}
+              >
+                {showAddAccount ? "❌ Cancel" : "➕ Add Account"}
+              </button>
+            </div>
+
+            {showAddAccount && (
+              <div style={{
+                marginBottom: "1.5rem",
+                padding: "1rem",
+                background: "rgba(6, 182, 212, 0.1)",
+                border: "1px solid rgba(6, 182, 212, 0.3)",
+                borderRadius: 10,
+              }}>
+                <div style={{ marginBottom: "0.75rem" }}>
+                  <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontWeight: "500", fontSize: "0.9rem" }}>
+                    Account Name
+                  </label>
+                  <input
+                    type="text"
+                    value={accountName}
+                    onChange={(e) => setAccountName(e.target.value)}
+                    placeholder="Main Account"
+                    style={{
+                      width: "100%",
+                      padding: "0.65rem",
+                      borderRadius: 8,
+                      border: "1px solid rgba(6, 182, 212, 0.3)",
+                      background: "rgba(2, 6, 23, 0.6)",
+                      color: "#e5e7eb",
+                      fontSize: "0.9rem",
+                    }}
+                  />
+                </div>
+                <div style={{ marginBottom: "1rem" }}>
+                  <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontWeight: "500", fontSize: "0.9rem" }}>
+                    Address
+                  </label>
+                  <input
+                    type="text"
+                    value={accountAddress}
+                    onChange={(e) => setAccountAddress(e.target.value)}
+                    placeholder="0x..."
+                    style={{
+                      width: "100%",
+                      padding: "0.65rem",
+                      borderRadius: 8,
+                      border: "1px solid rgba(6, 182, 212, 0.3)",
+                      background: "rgba(2, 6, 23, 0.6)",
+                      color: "#e5e7eb",
+                      fontSize: "0.9rem",
+                      fontFamily: "'JetBrains Mono', monospace",
+                    }}
+                  />
+                </div>
+                <button
+                  onClick={addAccount}
+                  disabled={loading}
+                  style={{
+                    padding: "0.65rem 1.5rem",
+                    borderRadius: 8,
+                    border: "none",
+                    background: loading ? "rgba(6, 182, 212, 0.5)" : "linear-gradient(135deg, #06b6d4, #0891b2)",
+                    color: "white",
+                    cursor: loading ? "not-allowed" : "pointer",
+                    fontWeight: "600",
+                    fontSize: "0.95rem",
+                    boxShadow: loading ? "none" : "0 4px 12px rgba(6, 182, 212, 0.3)",
+                    opacity: loading ? 0.6 : 1,
+                    width: "100%",
+                  }}
+                >
+                  {loading ? "⏳ Saving..." : "💾 Save Account"}
+                </button>
+              </div>
+            )}
+
+            {accounts.length === 0 ? (
+              <div style={{ padding: "1.5rem", textAlign: "center", color: "#94a3b8", fontStyle: "italic" }}>
+                No accounts added. Create or add your first account!
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: "0.75rem" }}>
+                {accounts.map((account: any) => (
+                  <div
+                    key={account.address}
+                    style={{
+                      padding: "1rem",
+                      background: selectedAccount === account.address 
+                        ? "rgba(6, 182, 212, 0.15)" 
+                        : "rgba(6, 182, 212, 0.05)",
+                      border: selectedAccount === account.address
+                        ? "2px solid rgba(6, 182, 212, 0.4)"
+                        : "1px solid rgba(6, 182, 212, 0.2)",
+                      borderRadius: 10,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      cursor: "pointer",
+                      transition: "all 0.3s ease",
+                    }}
+                    onClick={() => setSelectedAccount(account.address)}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div style={{ 
+                        fontSize: "1.1rem", 
+                        fontWeight: "600", 
+                        color: selectedAccount === account.address ? "#06b6d4" : "#64748b",
+                        marginBottom: "0.25rem"
+                      }}>
+                        {selectedAccount === account.address && "✔️ "}{account.name}
+                      </div>
+                      <div style={{ 
+                        fontSize: "0.85rem", 
+                        color: "#06b6d4",
+                        fontFamily: "'JetBrains Mono', monospace",
+                        wordBreak: "break-all"
+                      }}>
+                        {account.address}
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeAccount(account.address);
+                      }}
+                      disabled={loading}
+                      style={{
+                        padding: "0.5rem 1rem",
+                        borderRadius: 8,
+                        border: "none",
+                        background: "linear-gradient(135deg, #ef4444, #dc2626)",
+                        color: "white",
+                        cursor: loading ? "not-allowed" : "pointer",
+                        fontWeight: "600",
+                        fontSize: "0.85rem",
+                        opacity: loading ? 0.6 : 1,
+                      }}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </>
+      )}
+
       {activeTab === "send" && (
         <section
           style={{
@@ -935,6 +1475,169 @@ function App() {
                     padding: "0.75rem",
                     borderRadius: 8,
                   }}>{txHash}</p>
+                </div>
+              )}
+            </>
+          )}
+        </section>
+      )}
+
+      {activeTab === "history" && (
+        <section
+          style={{
+            padding: "1.5rem",
+            borderRadius: 16,
+            background: "rgba(30, 41, 59, 0.7)",
+            backdropFilter: "blur(12px)",
+            border: "1px solid rgba(139, 92, 246, 0.2)",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+          }}
+        >
+          <h2 style={{ fontSize: "1.4rem", marginBottom: "1rem", fontWeight: "600", color: "#f8fafc" }}>
+            📜 Transaction History
+          </h2>
+          
+          {!walletAddr ? (
+            <div style={{
+              padding: "2rem",
+              textAlign: "center",
+              color: "#94a3b8",
+              fontStyle: "italic"
+            }}>
+              No wallet loaded. Go to Wallet or Send tab to create/load a wallet.
+            </div>
+          ) : (
+            <>
+              <div style={{ marginBottom: "1rem", display: "flex", gap: "1rem", alignItems: "center" }}>
+                <div style={{ flex: 1 }}>
+                  <strong style={{ color: "#8b5cf6" }}>Current Wallet:</strong>{" "}
+                  <span style={{ 
+                    fontFamily: "'JetBrains Mono', monospace", 
+                    fontSize: "0.85rem",
+                    color: "#06b6d4"
+                  }}>
+                    {walletAddr}
+                  </span>
+                </div>
+                <button
+                  onClick={loadTxHistory}
+                  disabled={loading}
+                  style={{
+                    padding: "0.65rem 1.5rem",
+                    borderRadius: 8,
+                    border: "none",
+                    background: loading ? "rgba(139, 92, 246, 0.5)" : "linear-gradient(135deg, #8b5cf6, #7c3aed)",
+                    color: "white",
+                    cursor: loading ? "not-allowed" : "pointer",
+                    fontWeight: "600",
+                    fontSize: "0.95rem",
+                    boxShadow: loading ? "none" : "0 4px 12px rgba(139, 92, 246, 0.3)",
+                    transition: "all 0.3s ease",
+                    opacity: loading ? 0.6 : 1,
+                  }}
+                >
+                  {loading ? "⏳ Loading..." : "🔄 Refresh"}
+                </button>
+              </div>
+
+              {txHistory.length === 0 ? (
+                <div style={{
+                  padding: "2rem",
+                  textAlign: "center",
+                  color: "#94a3b8",
+                  fontStyle: "italic"
+                }}>
+                  No transactions found for this address.
+                </div>
+              ) : (
+                <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "600px" }}>
+                  {txHistory.map((tx: any) => {
+                    const isIncoming = tx.direction === "incoming";
+                    const timestamp = parseInt(tx.timestamp, 16);
+                    const date = new Date(timestamp * 1000);
+                    const value = BigInt(tx.value);
+                    const valueMSHW = (Number(value) / 1e18).toFixed(6);
+                    
+                    return (
+                      <div
+                        key={tx.hash}
+                        style={{
+                          padding: "1rem",
+                          marginBottom: "0.75rem",
+                          borderRadius: 10,
+                          background: isIncoming 
+                            ? "rgba(16, 185, 129, 0.1)" 
+                            : "rgba(239, 68, 68, 0.1)",
+                          border: isIncoming 
+                            ? "1px solid rgba(16, 185, 129, 0.3)" 
+                            : "1px solid rgba(239, 68, 68, 0.3)",
+                        }}
+                      >
+                        <div style={{ 
+                          display: "flex", 
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: "0.75rem"
+                        }}>
+                          <div style={{ 
+                            fontSize: "1.1rem", 
+                            fontWeight: "600",
+                            color: isIncoming ? "#10b981" : "#ef4444"
+                          }}>
+                            {isIncoming ? "⬇️ Received" : "⬆️ Sent"}
+                          </div>
+                          <div style={{ 
+                            fontSize: "1.2rem", 
+                            fontWeight: "700",
+                            color: isIncoming ? "#10b981" : "#ef4444"
+                          }}>
+                            {isIncoming ? "+" : "-"}{valueMSHW} MSHW
+                          </div>
+                        </div>
+                        
+                        <div style={{ fontSize: "0.85rem", color: "#94a3b8", marginBottom: "0.5rem" }}>
+                          <strong>From:</strong>{" "}
+                          <span style={{ fontFamily: "'JetBrains Mono', monospace", color: "#06b6d4" }}>
+                            {tx.from}
+                          </span>
+                        </div>
+                        
+                        <div style={{ fontSize: "0.85rem", color: "#94a3b8", marginBottom: "0.5rem" }}>
+                          <strong>To:</strong>{" "}
+                          <span style={{ fontFamily: "'JetBrains Mono', monospace", color: "#06b6d4" }}>
+                            {tx.to}
+                          </span>
+                        </div>
+                        
+                        <div style={{ 
+                          display: "flex", 
+                          justifyContent: "space-between",
+                          fontSize: "0.85rem",
+                          color: "#94a3b8",
+                          marginTop: "0.75rem",
+                          paddingTop: "0.75rem",
+                          borderTop: "1px solid rgba(148, 163, 184, 0.1)"
+                        }}>
+                          <div>
+                            <strong>Block:</strong> {parseInt(tx.block_number, 16)}
+                          </div>
+                          <div>
+                            {date.toLocaleString()}
+                          </div>
+                        </div>
+                        
+                        <div style={{ 
+                          fontSize: "0.75rem", 
+                          color: "#64748b",
+                          marginTop: "0.5rem",
+                          fontFamily: "'JetBrains Mono', monospace",
+                          wordBreak: "break-all"
+                        }}>
+                          {tx.hash}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </>
@@ -1163,7 +1866,64 @@ function App() {
               </div>
             </div>
             {dagStats && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "1rem", marginTop: "1rem" }}>
+              <>
+                {/* Consensus Health Indicator */}
+                <div style={{
+                  marginTop: "1rem",
+                  marginBottom: "1rem",
+                  padding: "1rem",
+                  borderRadius: 10,
+                  background: dagStats.blue_blocks / dagStats.total_blocks > 0.9 
+                    ? "rgba(16, 185, 129, 0.1)" 
+                    : "rgba(251, 191, 36, 0.1)",
+                  border: dagStats.blue_blocks / dagStats.total_blocks > 0.9
+                    ? "1px solid rgba(16, 185, 129, 0.3)"
+                    : "1px solid rgba(251, 191, 36, 0.3)",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div>
+                      <div style={{ fontSize: "0.9rem", color: "#94a3b8", marginBottom: "0.25rem" }}>
+                        💚 Consensus Health
+                      </div>
+                      <div style={{ 
+                        fontSize: "1.8rem", 
+                        fontWeight: "700",
+                        color: dagStats.blue_blocks / dagStats.total_blocks > 0.9 ? "#10b981" : "#fbbf24"
+                      }}>
+                        {((dagStats.blue_blocks / dagStats.total_blocks) * 100).toFixed(1)}%
+                      </div>
+                    </div>
+                    <div style={{ 
+                      width: "120px", 
+                      height: "120px",
+                      borderRadius: "50%",
+                      background: `conic-gradient(
+                        ${dagStats.blue_blocks / dagStats.total_blocks > 0.9 ? "#10b981" : "#fbbf24"} ${(dagStats.blue_blocks / dagStats.total_blocks) * 360}deg,
+                        rgba(148, 163, 184, 0.2) 0deg
+                      )`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)"
+                    }}>
+                      <div style={{
+                        width: "90px",
+                        height: "90px",
+                        borderRadius: "50%",
+                        background: "rgba(30, 41, 59, 0.95)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "0.85rem",
+                        fontWeight: "600",
+                        color: "#f8fafc"
+                      }}>
+                        Blue Ratio
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "1rem", marginTop: "1rem" }}>
                 <div style={{ 
                   padding: "1rem",
                   borderRadius: 10,
@@ -1213,6 +1973,7 @@ function App() {
                   <div style={{ color: "#94a3b8", fontSize: "0.85rem", marginTop: "0.25rem" }}>Avg Txs/Block</div>
                 </div>
               </div>
+              </>
             )}
             <button
               onClick={refreshMetrics}
@@ -1234,6 +1995,243 @@ function App() {
             >
               {loading ? "⏳ Refreshing..." : "🔄 Refresh"}
             </button>
+          </section>
+
+          {/* Mining Dashboard */}
+          <section
+            style={{
+              marginBottom: "1.5rem",
+              padding: "1.5rem",
+              borderRadius: 16,
+              background: "rgba(30, 41, 59, 0.7)",
+              backdropFilter: "blur(12px)",
+              border: "1px solid rgba(16, 185, 129, 0.2)",
+              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+            }}
+          >
+            <h2 style={{ fontSize: "1.4rem", marginBottom: "1rem", fontWeight: "600", color: "#f8fafc" }}>
+              ⛏️ Mining Dashboard
+            </h2>
+            {miningDashboard ? (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
+                  {/* Stream A Stats */}
+                  <div style={{
+                    padding: "1.25rem",
+                    borderRadius: 12,
+                    background: "rgba(16, 185, 129, 0.1)",
+                    border: "1px solid rgba(16, 185, 129, 0.3)",
+                  }}>
+                    <div style={{ fontSize: "1.1rem", fontWeight: "600", color: "#10b981", marginBottom: "1rem" }}>
+                      🟢 Stream A (ASIC)
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                      <div>
+                        <div style={{ color: "#94a3b8", fontSize: "0.85rem", marginBottom: "0.25rem" }}>Blocks Mined</div>
+                        <div style={{ fontSize: "1.8rem", fontWeight: "700", color: "#10b981" }}>
+                          {miningDashboard.streams.stream_a.blocks_mined}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ color: "#94a3b8", fontSize: "0.85rem", marginBottom: "0.25rem" }}>Hashrate (blocks/hr)</div>
+                        <div style={{ fontSize: "1.3rem", fontWeight: "600", color: "#f8fafc" }}>
+                          {miningDashboard.streams.stream_a.hashrate_estimate_blocks_per_hour.toFixed(1)}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ color: "#94a3b8", fontSize: "0.85rem", marginBottom: "0.25rem" }}>Earnings (MSHW)</div>
+                        <div style={{ fontSize: "1.1rem", fontWeight: "600", color: "#fbbf24" }}>
+                          💰 {(parseInt(miningDashboard.streams.stream_a.earnings, 16) / 1e18).toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Stream B Stats */}
+                  <div style={{
+                    padding: "1.25rem",
+                    borderRadius: 12,
+                    background: "rgba(139, 92, 246, 0.1)",
+                    border: "1px solid rgba(139, 92, 246, 0.3)",
+                  }}>
+                    <div style={{ fontSize: "1.1rem", fontWeight: "600", color: "#8b5cf6", marginBottom: "1rem" }}>
+                      🔵 Stream B (CPU/GPU)
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                      <div>
+                        <div style={{ color: "#94a3b8", fontSize: "0.85rem", marginBottom: "0.25rem" }}>Blocks Mined</div>
+                        <div style={{ fontSize: "1.8rem", fontWeight: "700", color: "#8b5cf6" }}>
+                          {miningDashboard.streams.stream_b.blocks_mined}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ color: "#94a3b8", fontSize: "0.85rem", marginBottom: "0.25rem" }}>Hashrate (blocks/hr)</div>
+                        <div style={{ fontSize: "1.3rem", fontWeight: "600", color: "#f8fafc" }}>
+                          {miningDashboard.streams.stream_b.hashrate_estimate_blocks_per_hour.toFixed(1)}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ color: "#94a3b8", fontSize: "0.85rem", marginBottom: "0.25rem" }}>Earnings (MSHW)</div>
+                        <div style={{ fontSize: "1.1rem", fontWeight: "600", color: "#fbbf24" }}>
+                          💰 {(parseInt(miningDashboard.streams.stream_b.earnings, 16) / 1e18).toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Stream C Stats */}
+                  <div style={{
+                    padding: "1.25rem",
+                    borderRadius: 12,
+                    background: "rgba(236, 72, 153, 0.1)",
+                    border: "1px solid rgba(236, 72, 153, 0.3)",
+                  }}>
+                    <div style={{ fontSize: "1.1rem", fontWeight: "600", color: "#ec4899", marginBottom: "1rem" }}>
+                      🟣 Stream C (ZK)
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                      <div>
+                        <div style={{ color: "#94a3b8", fontSize: "0.85rem", marginBottom: "0.25rem" }}>Blocks Mined</div>
+                        <div style={{ fontSize: "1.8rem", fontWeight: "700", color: "#ec4899" }}>
+                          {miningDashboard.streams.stream_c.blocks_mined}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ color: "#94a3b8", fontSize: "0.85rem", marginBottom: "0.25rem" }}>Hashrate (blocks/hr)</div>
+                        <div style={{ fontSize: "1.3rem", fontWeight: "600", color: "#f8fafc" }}>
+                          {miningDashboard.streams.stream_c.hashrate_estimate_blocks_per_hour.toFixed(1)}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ color: "#94a3b8", fontSize: "0.85rem", marginBottom: "0.25rem" }}>Fees Collected</div>
+                        <div style={{ fontSize: "1.1rem", fontWeight: "600", color: "#fbbf24" }}>
+                          💰 {(parseInt(miningDashboard.streams.stream_c.fees_collected, 16) / 1e18).toFixed(6)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Total Earnings Summary */}
+                <div style={{
+                  padding: "1.5rem",
+                  borderRadius: 12,
+                  background: "rgba(251, 191, 36, 0.1)",
+                  border: "1px solid rgba(251, 191, 36, 0.3)",
+                  textAlign: "center"
+                }}>
+                  <div style={{ color: "#94a3b8", fontSize: "0.9rem", marginBottom: "0.5rem" }}>Total Earnings (Last 100 Blocks)</div>
+                  <div style={{ fontSize: "2.5rem", fontWeight: "700", color: "#fbbf24" }}>
+                    💰 {(parseInt(miningDashboard.total_earnings_recent, 16) / 1e18).toFixed(2)} MSHW
+                  </div>
+                  <div style={{ color: "#94a3b8", fontSize: "0.85rem", marginTop: "0.5rem" }}>
+                    Sample: {miningDashboard.recent_sample_size} blocks | Total Blocks: {miningDashboard.total_blocks}
+                  </div>
+                </div>
+
+                {/* Visual Distribution Bar */}
+                <div style={{
+                  marginTop: "1.5rem",
+                  padding: "1.25rem",
+                  borderRadius: 12,
+                  background: "rgba(30, 41, 59, 0.5)",
+                  border: "1px solid rgba(148, 163, 184, 0.2)"
+                }}>
+                  <div style={{ fontSize: "1rem", fontWeight: "600", color: "#f8fafc", marginBottom: "1rem" }}>
+                    📊 Stream Distribution (Last 100 Blocks)
+                  </div>
+                  <div style={{ 
+                    display: "flex", 
+                    height: "40px", 
+                    borderRadius: 8, 
+                    overflow: "hidden",
+                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)"
+                  }}>
+                    {/* Stream A portion */}
+                    <div style={{
+                      flex: miningDashboard.streams.stream_a.blocks_mined,
+                      background: "linear-gradient(135deg, #10b981, #059669)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "white",
+                      fontWeight: "600",
+                      fontSize: "0.9rem",
+                      transition: "all 0.3s ease"
+                    }}>
+                      {miningDashboard.streams.stream_a.blocks_mined > 0 && (
+                        <span>{miningDashboard.streams.stream_a.blocks_mined}</span>
+                      )}
+                    </div>
+                    {/* Stream B portion */}
+                    <div style={{
+                      flex: miningDashboard.streams.stream_b.blocks_mined,
+                      background: "linear-gradient(135deg, #8b5cf6, #7c3aed)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "white",
+                      fontWeight: "600",
+                      fontSize: "0.9rem",
+                      transition: "all 0.3s ease"
+                    }}>
+                      {miningDashboard.streams.stream_b.blocks_mined > 0 && (
+                        <span>{miningDashboard.streams.stream_b.blocks_mined}</span>
+                      )}
+                    </div>
+                    {/* Stream C portion */}
+                    <div style={{
+                      flex: miningDashboard.streams.stream_c.blocks_mined,
+                      background: "linear-gradient(135deg, #ec4899, #db2777)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "white",
+                      fontWeight: "600",
+                      fontSize: "0.9rem",
+                      transition: "all 0.3s ease"
+                    }}>
+                      {miningDashboard.streams.stream_c.blocks_mined > 0 && (
+                        <span>{miningDashboard.streams.stream_c.blocks_mined}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ 
+                    display: "flex", 
+                    justifyContent: "space-around", 
+                    marginTop: "1rem",
+                    fontSize: "0.85rem"
+                  }}>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ color: "#10b981", fontWeight: "600" }}>🟢 A</div>
+                      <div style={{ color: "#94a3b8" }}>
+                        {miningDashboard.streams.stream_a.blocks_mined > 0 
+                          ? ((miningDashboard.streams.stream_a.blocks_mined / 100) * 100).toFixed(1)
+                          : "0"}%
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ color: "#8b5cf6", fontWeight: "600" }}>🔵 B</div>
+                      <div style={{ color: "#94a3b8" }}>
+                        {miningDashboard.streams.stream_b.blocks_mined > 0
+                          ? ((miningDashboard.streams.stream_b.blocks_mined / 100) * 100).toFixed(1)
+                          : "0"}%
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ color: "#ec4899", fontWeight: "600" }}>🟣 C</div>
+                      <div style={{ color: "#94a3b8" }}>
+                        {miningDashboard.streams.stream_c.blocks_mined > 0
+                          ? ((miningDashboard.streams.stream_c.blocks_mined / 100) * 100).toFixed(1)
+                          : "0"}%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <p style={{ color: "#94a3b8", fontStyle: "italic" }}>Loading mining dashboard...</p>
+            )}
           </section>
 
           <section
