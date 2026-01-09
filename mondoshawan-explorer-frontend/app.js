@@ -48,6 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupSearch();
     setupFairnessControls();
     setupForensicsControls();
+    setupAccountAbstraction();
 });
 
 // Load dashboard statistics
@@ -553,6 +554,37 @@ async function displayAddress(address) {
         `;
     }
     
+    // Check if address is a contract wallet
+    let walletInfo = null;
+    try {
+        const isWallet = await rpcCall('mds_isContractWallet', [addressStr]).catch(() => null);
+        if (isWallet && isWallet.isContractWallet) {
+            walletInfo = await rpcCall('mds_getWallet', [addressStr]).catch(() => null);
+        }
+    } catch (error) {
+        console.error('Error checking wallet:', error);
+    }
+    
+    let walletHtml = '';
+    if (walletInfo) {
+        const walletType = walletInfo.walletType || 'basic';
+        walletHtml = `
+            <div class="wallet-section" style="margin-top: 1rem; padding: 1rem; background: #1e293b; border-radius: 8px; border-left: 4px solid #8b5cf6;">
+                <h4>🔐 Smart Contract Wallet</h4>
+                <p><strong>Wallet Type:</strong> <span style="text-transform: capitalize;">${walletType}</span></p>
+                <p><strong>Owner:</strong> <code>${walletInfo.owner || 'N/A'}</code></p>
+                ${walletType === 'multisig' && walletInfo.signers ? `
+                    <p><strong>Signers:</strong> ${walletInfo.signers.length}</p>
+                    <p><strong>Threshold:</strong> ${walletInfo.threshold || 'N/A'}</p>
+                ` : ''}
+                ${walletType === 'socialRecovery' && walletInfo.guardians ? `
+                    <p><strong>Guardians:</strong> ${walletInfo.guardians.length}</p>
+                    <p><strong>Recovery Threshold:</strong> ${walletInfo.recoveryThreshold || 'N/A'}</p>
+                ` : ''}
+            </div>
+        `;
+    }
+    
     addressInfo.innerHTML = `
         <h3>Address Details</h3>
         <p><strong>Address:</strong> <code>${addressStr}</code></p>
@@ -560,6 +592,7 @@ async function displayAddress(address) {
         <p><strong>Transactions:</strong> ${address.transaction_count || 'N/A'}</p>
         <p><strong>First Seen:</strong> ${address.first_seen ? new Date(address.first_seen * 1000).toLocaleString() : 'N/A'}</p>
         <p><strong>Last Seen:</strong> ${address.last_seen ? new Date(address.last_seen * 1000).toLocaleString() : 'N/A'}</p>
+        ${walletHtml}
         ${reputationHtml}
         ${shardHtml}
         ${riskHtml}
@@ -1271,3 +1304,300 @@ setInterval(() => {
     loadMevMetrics();
 }, 5000);
 
+// Account Abstraction Setup
+function setupAccountAbstraction() {
+    // Wallet creation
+    document.getElementById('create-wallet-btn').addEventListener('click', createWallet);
+    document.getElementById('wallet-type-select').addEventListener('change', updateWalletConfig);
+    
+    // Wallet lookup
+    document.getElementById('lookup-wallet-btn').addEventListener('click', lookupWallet);
+    
+    // Multi-sig transactions
+    document.getElementById('view-multisig-txs-btn').addEventListener('click', viewMultisigTransactions);
+    
+    // Recovery status
+    document.getElementById('view-recovery-btn').addEventListener('click', viewRecoveryStatus);
+    
+    // Batch transactions
+    document.getElementById('view-batch-btn').addEventListener('click', viewBatchStatus);
+}
+
+// Update wallet configuration UI based on wallet type
+function updateWalletConfig() {
+    const walletType = document.getElementById('wallet-type-select').value;
+    const configDiv = document.getElementById('wallet-config');
+    
+    let html = '';
+    if (walletType === 'multisig') {
+        html = `
+            <input type="text" id="multisig-signers-input" placeholder="Signer addresses (comma-separated, 0x...)" class="address-input" style="margin-top: 0.5rem;">
+            <input type="number" id="multisig-threshold-input" placeholder="Threshold (e.g., 2)" min="1" class="address-input" style="margin-top: 0.5rem;">
+        `;
+    } else if (walletType === 'socialRecovery') {
+        html = `
+            <input type="text" id="recovery-guardians-input" placeholder="Guardian addresses (comma-separated, 0x...)" class="address-input" style="margin-top: 0.5rem;">
+            <input type="number" id="recovery-threshold-input" placeholder="Recovery threshold (e.g., 2)" min="1" class="address-input" style="margin-top: 0.5rem;">
+        `;
+    } else if (walletType === 'spendingLimit') {
+        html = `
+            <input type="text" id="daily-limit-input" placeholder="Daily limit (in base units)" class="address-input" style="margin-top: 0.5rem;">
+            <input type="text" id="weekly-limit-input" placeholder="Weekly limit (in base units)" class="address-input" style="margin-top: 0.5rem;">
+            <input type="text" id="monthly-limit-input" placeholder="Monthly limit (in base units)" class="address-input" style="margin-top: 0.5rem;">
+        `;
+    }
+    
+    configDiv.innerHTML = html;
+}
+
+// Create a new wallet
+async function createWallet() {
+    const walletType = document.getElementById('wallet-type-select').value;
+    const owner = document.getElementById('wallet-owner-input').value.trim();
+    const resultDiv = document.getElementById('wallet-result');
+    
+    if (!owner || !owner.startsWith('0x')) {
+        resultDiv.innerHTML = '<p class="error">Please enter a valid owner address</p>';
+        return;
+    }
+    
+    resultDiv.innerHTML = '<p>Creating wallet...</p>';
+    
+    try {
+        let config = {};
+        
+        if (walletType === 'multisig') {
+            const signersInput = document.getElementById('multisig-signers-input').value.trim();
+            const threshold = parseInt(document.getElementById('multisig-threshold-input').value);
+            const signers = signersInput.split(',').map(s => s.trim()).filter(s => s);
+            
+            if (signers.length === 0 || !threshold) {
+                resultDiv.innerHTML = '<p class="error">Please provide signers and threshold</p>';
+                return;
+            }
+            
+            config = { signers, threshold };
+        } else if (walletType === 'socialRecovery') {
+            const guardiansInput = document.getElementById('recovery-guardians-input').value.trim();
+            const recoveryThreshold = parseInt(document.getElementById('recovery-threshold-input').value);
+            const guardians = guardiansInput.split(',').map(g => g.trim()).filter(g => g);
+            
+            if (guardians.length === 0 || !recoveryThreshold) {
+                resultDiv.innerHTML = '<p class="error">Please provide guardians and recovery threshold</p>';
+                return;
+            }
+            
+            config = { guardians, recoveryThreshold };
+        } else if (walletType === 'spendingLimit') {
+            const dailyLimit = document.getElementById('daily-limit-input').value.trim();
+            const weeklyLimit = document.getElementById('weekly-limit-input').value.trim();
+            const monthlyLimit = document.getElementById('monthly-limit-input').value.trim();
+            
+            config = {
+                spendingLimits: {
+                    dailyLimit: dailyLimit || '0',
+                    weeklyLimit: weeklyLimit || '0',
+                    monthlyLimit: monthlyLimit || '0'
+                }
+            };
+        }
+        
+        const result = await rpcCall('mds_createWallet', {
+            owner: owner,
+            walletType: walletType,
+            config: config
+        });
+        
+        resultDiv.innerHTML = `
+            <div class="success" style="padding: 1rem; background: #065f46; border-radius: 8px; margin-top: 1rem;">
+                <h4>✅ Wallet Created Successfully</h4>
+                <p><strong>Wallet Address:</strong> <code>${result.walletAddress}</code></p>
+                <p><strong>Owner:</strong> <code>${result.owner}</code></p>
+                <p><strong>Type:</strong> ${result.walletType}</p>
+            </div>
+        `;
+    } catch (error) {
+        resultDiv.innerHTML = `<p class="error">Error creating wallet: ${error.message}</p>`;
+    }
+}
+
+// Lookup wallet information
+async function lookupWallet() {
+    const walletAddress = document.getElementById('wallet-address-input').value.trim();
+    const detailsDiv = document.getElementById('wallet-details');
+    
+    if (!walletAddress || !walletAddress.startsWith('0x')) {
+        detailsDiv.innerHTML = '<p class="error">Please enter a valid wallet address</p>';
+        return;
+    }
+    
+    detailsDiv.innerHTML = '<p>Loading wallet information...</p>';
+    
+    try {
+        const wallet = await rpcCall('mds_getWallet', [walletAddress]);
+        
+        let detailsHtml = `
+            <div style="padding: 1rem; background: #1e293b; border-radius: 8px; margin-top: 1rem;">
+                <h4>Wallet Information</h4>
+                <p><strong>Address:</strong> <code>${wallet.walletAddress}</code></p>
+                <p><strong>Owner:</strong> <code>${wallet.owner}</code></p>
+                <p><strong>Type:</strong> ${wallet.walletType}</p>
+        `;
+        
+        if (wallet.signers) {
+            detailsHtml += `
+                <p><strong>Signers:</strong> ${wallet.signers.length}</p>
+                <p><strong>Threshold:</strong> ${wallet.threshold}</p>
+                <div style="margin-top: 0.5rem;">
+                    <strong>Signer Addresses:</strong>
+                    <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                        ${wallet.signers.map(s => `<li><code>${s}</code></li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+        
+        if (wallet.guardians) {
+            detailsHtml += `
+                <p><strong>Guardians:</strong> ${wallet.guardians.length}</p>
+                <p><strong>Recovery Threshold:</strong> ${wallet.recoveryThreshold}</p>
+            `;
+        }
+        
+        detailsHtml += `</div>`;
+        detailsDiv.innerHTML = detailsHtml;
+    } catch (error) {
+        detailsDiv.innerHTML = `<p class="error">Error loading wallet: ${error.message}</p>`;
+    }
+}
+
+// View multi-sig transactions
+async function viewMultisigTransactions() {
+    const walletAddress = document.getElementById('multisig-wallet-input').value.trim();
+    const txsDiv = document.getElementById('multisig-transactions');
+    
+    if (!walletAddress || !walletAddress.startsWith('0x')) {
+        txsDiv.innerHTML = '<p class="error">Please enter a valid wallet address</p>';
+        return;
+    }
+    
+    txsDiv.innerHTML = '<p>Loading pending transactions...</p>';
+    
+    try {
+        const pending = await rpcCall('mds_getPendingMultisigTransactions', [walletAddress]);
+        
+        if (!pending || pending.length === 0) {
+            txsDiv.innerHTML = '<p>No pending multi-sig transactions</p>';
+            return;
+        }
+        
+        let html = '<div style="margin-top: 1rem;">';
+        pending.forEach(tx => {
+            html += `
+                <div style="padding: 1rem; background: #1e293b; border-radius: 8px; margin-bottom: 1rem;">
+                    <p><strong>Transaction Hash:</strong> <code>${tx.txHash}</code></p>
+                    <p><strong>To:</strong> <code>${tx.to}</code></p>
+                    <p><strong>Value:</strong> ${tx.value}</p>
+                    <p><strong>Signatures Collected:</strong> ${tx.signaturesCollected || 0} / ${tx.threshold || 'N/A'}</p>
+                    <p><strong>Status:</strong> ${tx.status || 'pending'}</p>
+                </div>
+            `;
+        });
+        html += '</div>';
+        txsDiv.innerHTML = html;
+    } catch (error) {
+        txsDiv.innerHTML = `<p class="error">Error loading transactions: ${error.message}</p>`;
+    }
+}
+
+// View recovery status
+async function viewRecoveryStatus() {
+    const walletAddress = document.getElementById('recovery-wallet-input').value.trim();
+    const statusDiv = document.getElementById('recovery-status');
+    
+    if (!walletAddress || !walletAddress.startsWith('0x')) {
+        statusDiv.innerHTML = '<p class="error">Please enter a valid wallet address</p>';
+        return;
+    }
+    
+    statusDiv.innerHTML = '<p>Loading recovery status...</p>';
+    
+    try {
+        const status = await rpcCall('mds_getRecoveryStatus', { walletAddress: walletAddress });
+        
+        const statusClass = status.status === 'ready' ? 'success' : status.status === 'approved' ? 'warning' : 'info';
+        statusDiv.innerHTML = `
+            <div style="padding: 1rem; background: #1e293b; border-radius: 8px; margin-top: 1rem;">
+                <h4>Recovery Status</h4>
+                <p><strong>Status:</strong> <span class="${statusClass}">${status.status}</span></p>
+                <p><strong>New Owner:</strong> <code>${status.newOwner}</code></p>
+                <p><strong>Guardians:</strong> ${status.guardians.length}</p>
+                <p><strong>Recovery Threshold:</strong> ${status.recoveryThreshold}</p>
+                <p><strong>Approvals:</strong> ${status.approvalCount} / ${status.recoveryThreshold}</p>
+                <p><strong>Threshold Met:</strong> ${status.thresholdMet ? 'Yes' : 'No'}</p>
+                <p><strong>Ready to Complete:</strong> ${status.isReady ? 'Yes' : 'No'}</p>
+                ${status.approvals && status.approvals.length > 0 ? `
+                    <div style="margin-top: 1rem;">
+                        <strong>Approvals:</strong>
+                        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                            ${status.approvals.map(a => `<li><code>${a.guardian}</code> - ${new Date(a.approvedAt * 1000).toLocaleString()}</li>`).join('')}
+                        </ul>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    } catch (error) {
+        if (error.message.includes('not found')) {
+            statusDiv.innerHTML = '<p>No active recovery request for this wallet</p>';
+        } else {
+            statusDiv.innerHTML = `<p class="error">Error loading recovery status: ${error.message}</p>`;
+        }
+    }
+}
+
+// View batch status
+async function viewBatchStatus() {
+    const batchId = document.getElementById('batch-id-input').value.trim();
+    const statusDiv = document.getElementById('batch-status');
+    
+    if (!batchId || !batchId.startsWith('0x')) {
+        statusDiv.innerHTML = '<p class="error">Please enter a valid batch ID</p>';
+        return;
+    }
+    
+    statusDiv.innerHTML = '<p>Loading batch status...</p>';
+    
+    try {
+        const status = await rpcCall('mds_getBatchStatus', { batchId: batchId });
+        
+        const statusClass = status.status === 'completed' ? 'success' : status.status === 'failed' ? 'error' : 'info';
+        statusDiv.innerHTML = `
+            <div style="padding: 1rem; background: #1e293b; border-radius: 8px; margin-top: 1rem;">
+                <h4>Batch Transaction Status</h4>
+                <p><strong>Batch ID:</strong> <code>${status.batchId}</code></p>
+                <p><strong>Wallet:</strong> <code>${status.walletAddress}</code></p>
+                <p><strong>Status:</strong> <span class="${statusClass}">${status.status}</span></p>
+                <p><strong>Operations:</strong> ${status.completedOperations} / ${status.operationCount}</p>
+                <p><strong>Gas Used:</strong> ${parseInt(status.gasUsed, 16).toLocaleString()}</p>
+                <p><strong>Gas Limit:</strong> ${parseInt(status.gasLimit, 16).toLocaleString()}</p>
+                ${status.results && status.results.length > 0 ? `
+                    <div style="margin-top: 1rem;">
+                        <strong>Operation Results:</strong>
+                        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                            ${status.results.map(r => `
+                                <li>
+                                    Operation ${r.operationIndex}: 
+                                    ${r.success ? '✅ Success' : '❌ Failed'}
+                                    ${r.error ? ` - ${r.error}` : ''}
+                                    (Gas: ${parseInt(r.gasUsed, 16).toLocaleString()})
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    } catch (error) {
+        statusDiv.innerHTML = `<p class="error">Error loading batch status: ${error.message}</p>`;
+    }
+}

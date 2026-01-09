@@ -18,6 +18,7 @@
                 <li><a href="#sharding">🔷 Sharding</a></li>
                 <li><a href="#fairness">⚖️ Fairness & MEV</a></li>
                 <li><a href="#forensics">🔍 Forensics</a></li>
+                <li><a href="#account-abstraction">🔐 Account Abstraction</a></li>
                 <li><a href="#explain">💡 Explain</a></li>
                 <li><a href="#security">🔒 Security</a></li>
             </ul>
@@ -165,6 +166,68 @@
                 <div id="anomaly-display" class="anomaly-display">
                     <p>Enter an address to detect anomalies</p>
                 </div>
+            </div>
+        </section>
+
+        <!-- Account Abstraction Section -->
+        <section id="account-abstraction" class="section">
+            <h2>🔐 Account Abstraction</h2>
+            
+            <!-- Wallet Creation -->
+            <div id="wallet-creation" class="aa-section">
+                <h3>Create Smart Contract Wallet</h3>
+                <div class="wallet-form">
+                    <select id="wallet-type-select" class="wallet-select">
+                        <option value="basic">Basic Wallet</option>
+                        <option value="multisig">Multi-Signature Wallet</option>
+                        <option value="socialRecovery">Social Recovery Wallet</option>
+                        <option value="spendingLimit">Spending Limit Wallet</option>
+                    </select>
+                    <input type="text" id="wallet-owner-input" placeholder="Owner address (0x...)" class="address-input">
+                    <div id="wallet-config" class="wallet-config"></div>
+                    <button id="create-wallet-btn" class="create-btn">Create Wallet</button>
+                </div>
+                <div id="wallet-result" class="wallet-result"></div>
+            </div>
+
+            <!-- Wallet Info Display -->
+            <div id="wallet-info" class="aa-section">
+                <h3>Wallet Information</h3>
+                <div class="wallet-lookup">
+                    <input type="text" id="wallet-address-input" placeholder="Wallet address (0x...)" class="address-input">
+                    <button id="lookup-wallet-btn" class="lookup-btn">Lookup Wallet</button>
+                </div>
+                <div id="wallet-details" class="wallet-details"></div>
+            </div>
+
+            <!-- Multi-Sig Transactions -->
+            <div id="multisig-section" class="aa-section">
+                <h3>Multi-Signature Transactions</h3>
+                <div class="multisig-controls">
+                    <input type="text" id="multisig-wallet-input" placeholder="Multi-sig wallet address (0x...)" class="address-input">
+                    <button id="view-multisig-txs-btn" class="view-btn">View Pending Transactions</button>
+                </div>
+                <div id="multisig-transactions" class="multisig-transactions"></div>
+            </div>
+
+            <!-- Social Recovery -->
+            <div id="recovery-section" class="aa-section">
+                <h3>Social Recovery</h3>
+                <div class="recovery-controls">
+                    <input type="text" id="recovery-wallet-input" placeholder="Wallet address (0x...)" class="address-input">
+                    <button id="view-recovery-btn" class="view-btn">View Recovery Status</button>
+                </div>
+                <div id="recovery-status" class="recovery-status"></div>
+            </div>
+
+            <!-- Batch Transactions -->
+            <div id="batch-section" class="aa-section">
+                <h3>Batch Transactions</h3>
+                <div class="batch-controls">
+                    <input type="text" id="batch-id-input" placeholder="Batch ID (0x...)" class="address-input">
+                    <button id="view-batch-btn" class="view-btn">View Batch Status</button>
+                </div>
+                <div id="batch-status" class="batch-status"></div>
             </div>
         </section>
 

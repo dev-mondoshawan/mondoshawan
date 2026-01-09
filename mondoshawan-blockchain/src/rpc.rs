@@ -68,6 +68,8 @@ pub struct RpcServer {
     multisig_manager: Option<Arc<tokio::sync::RwLock<crate::account_abstraction::MultiSigManager>>>,
     /// Social recovery manager for wallet recovery
     social_recovery_manager: Option<Arc<tokio::sync::RwLock<crate::account_abstraction::SocialRecoveryManager>>>,
+    /// Batch transaction manager
+    batch_manager: Option<Arc<tokio::sync::RwLock<crate::account_abstraction::BatchManager>>>,
     /// API key for authentication (if None, authentication is disabled)
     api_key: Option<String>,
     /// Methods that don't require authentication (public methods)
@@ -101,6 +103,7 @@ impl RpcServer {
             wallet_registry: None,
             multisig_manager: None,
             social_recovery_manager: None,
+            batch_manager: None,
             api_key: None,
             public_methods,
         }
@@ -146,6 +149,7 @@ impl RpcServer {
             wallet_registry: None,
             multisig_manager: None,
             social_recovery_manager: None,
+            batch_manager: None,
             api_key: None,
             public_methods,
         }
@@ -192,6 +196,7 @@ impl RpcServer {
             wallet_registry: None,
             multisig_manager: None,
             social_recovery_manager: None,
+            batch_manager: None,
             api_key: None,
             public_methods,
         }
@@ -231,6 +236,7 @@ impl RpcServer {
             wallet_registry: None,
             multisig_manager: None,
             social_recovery_manager: None,
+            batch_manager: None,
             api_key: None,
             public_methods,
         }
@@ -457,6 +463,11 @@ impl RpcServer {
             "mds_getRecoveryStatus" => self.mds_get_recovery_status(request.params).await,
             "mds_completeRecovery" => self.mds_complete_recovery(request.params).await,
             "mds_cancelRecovery" => self.mds_cancel_recovery(request.params).await,
+            // Batch Transaction Operations
+            "mds_createBatchTransaction" => self.mds_create_batch_transaction(request.params).await,
+            "mds_executeBatchTransaction" => self.mds_execute_batch_transaction(request.params).await,
+            "mds_getBatchStatus" => self.mds_get_batch_status(request.params).await,
+            "mds_estimateBatchGas" => self.mds_estimate_batch_gas(request.params).await,
             _ => Err(JsonRpcError {
                 code: -32601,
                 message: format!("Method not found: {}", request.method),
@@ -3399,6 +3410,11 @@ impl RpcServer {
         self.social_recovery_manager = Some(social_recovery_manager);
     }
     
+    /// Set batch transaction manager
+    pub fn with_batch_manager(&mut self, batch_manager: Arc<tokio::sync::RwLock<crate::account_abstraction::BatchManager>>) {
+        self.batch_manager = Some(batch_manager);
+    }
+    
     /// mds_createWallet - Create a new smart contract wallet
     async fn mds_create_wallet(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
         let wallet_registry = self.wallet_registry.as_ref()
@@ -4278,6 +4294,380 @@ impl RpcServer {
                     "walletAddress": format!("0x{}", hex::encode(wallet_address)),
                     "status": "cancelled",
                     "message": "Recovery request cancelled",
+                }))
+            }
+            Err(e) => Err(JsonRpcError {
+                code: -32603,
+                message: e,
+                data: None,
+            }),
+        }
+    }
+    
+    /// mds_createBatchTransaction - Create a new batch transaction
+    async fn mds_create_batch_transaction(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let batch_manager = self.batch_manager.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Batch manager not available".to_string(),
+                data: None,
+            })?;
+        
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Missing parameters".to_string(),
+            data: None,
+        })?;
+        
+        let wallet_address = parse_address(params.get("walletAddress")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing 'walletAddress'".to_string(),
+                data: None,
+            })?)?;
+        
+        let operations_array = params.get("operations")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing 'operations' array".to_string(),
+                data: None,
+            })?;
+        
+        let mut operations = Vec::new();
+        for op_json in operations_array {
+            let op_type = op_json.get("type")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| JsonRpcError {
+                    code: -32602,
+                    message: "Missing operation 'type'".to_string(),
+                    data: None,
+                })?;
+            
+            let operation = match op_type {
+                "transfer" => {
+                    let to = parse_address(op_json.get("to")
+                        .and_then(|v| v.as_str())
+                        .ok_or_else(|| JsonRpcError {
+                            code: -32602,
+                            message: "Missing 'to' for transfer".to_string(),
+                            data: None,
+                        })?)?;
+                    let value = parse_hex_u128(op_json.get("value")
+                        .and_then(|v| v.as_str())
+                        .ok_or_else(|| JsonRpcError {
+                            code: -32602,
+                            message: "Missing 'value' for transfer".to_string(),
+                            data: None,
+                        })?)?;
+                    crate::account_abstraction::BatchOperation::Transfer { to, value }
+                }
+                "contractCall" => {
+                    let contract = parse_address(op_json.get("contract")
+                        .and_then(|v| v.as_str())
+                        .ok_or_else(|| JsonRpcError {
+                            code: -32602,
+                            message: "Missing 'contract' for contractCall".to_string(),
+                            data: None,
+                        })?)?;
+                    let data = op_json.get("data")
+                        .and_then(|v| v.as_str())
+                        .map(|s| hex::decode(s.strip_prefix("0x").unwrap_or(s)).unwrap_or_default())
+                        .unwrap_or_default();
+                    let value = op_json.get("value")
+                        .and_then(|v| v.as_str())
+                        .map(|s| parse_hex_u128(s).unwrap_or(0))
+                        .unwrap_or(0);
+                    crate::account_abstraction::BatchOperation::ContractCall { contract, data, value }
+                }
+                "approval" => {
+                    let spender = parse_address(op_json.get("spender")
+                        .and_then(|v| v.as_str())
+                        .ok_or_else(|| JsonRpcError {
+                            code: -32602,
+                            message: "Missing 'spender' for approval".to_string(),
+                            data: None,
+                        })?)?;
+                    let amount = parse_hex_u128(op_json.get("amount")
+                        .and_then(|v| v.as_str())
+                        .ok_or_else(|| JsonRpcError {
+                            code: -32602,
+                            message: "Missing 'amount' for approval".to_string(),
+                            data: None,
+                        })?)?;
+                    crate::account_abstraction::BatchOperation::Approval { spender, amount }
+                }
+                _ => {
+                    return Err(JsonRpcError {
+                        code: -32602,
+                        message: format!("Unknown operation type: {}", op_type),
+                        data: None,
+                    });
+                }
+            };
+            operations.push(operation);
+        }
+        
+        let nonce = params.get("nonce")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        
+        let gas_limit = parse_hex_number(params.get("gasLimit")
+            .and_then(|v| v.as_str())
+            .unwrap_or("0x100000"))?;
+        
+        let gas_price = parse_hex_u128(params.get("gasPrice")
+            .and_then(|v| v.as_str())
+            .unwrap_or("0x3b9aca00"))?;
+        
+        // Get current timestamp
+        let blockchain = self.blockchain.read().await;
+        let current_timestamp = blockchain.get_blocks()
+            .last()
+            .map(|b| b.header.timestamp)
+            .unwrap_or(0);
+        drop(blockchain);
+        
+        let mut manager = batch_manager.write().await;
+        match manager.create_batch(wallet_address, operations.clone(), nonce, gas_limit, gas_price, current_timestamp) {
+            Ok(batch) => {
+                // Estimate gas
+                let estimate = manager.estimate_gas(&operations).unwrap_or_else(|_| crate::account_abstraction::GasEstimate {
+                    total_gas: gas_limit,
+                    base_gas: 21_000,
+                    operation_gas: 0,
+                    optimization_savings: 0,
+                });
+                
+                Ok(json!({
+                    "batchId": format!("0x{}", hex::encode(batch.batch_id)),
+                    "walletAddress": format!("0x{}", hex::encode(wallet_address)),
+                    "operationCount": batch.operation_count(),
+                    "estimatedGas": format!("0x{:x}", estimate.total_gas),
+                    "gasBreakdown": {
+                        "baseGas": format!("0x{:x}", estimate.base_gas),
+                        "operationGas": format!("0x{:x}", estimate.operation_gas),
+                        "optimizationSavings": format!("0x{:x}", estimate.optimization_savings),
+                    },
+                    "status": "pending",
+                }))
+            }
+            Err(e) => Err(JsonRpcError {
+                code: -32603,
+                message: e,
+                data: None,
+            }),
+        }
+    }
+    
+    /// mds_executeBatchTransaction - Execute a batch transaction
+    async fn mds_execute_batch_transaction(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let batch_manager = self.batch_manager.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Batch manager not available".to_string(),
+                data: None,
+            })?;
+        
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Missing parameters".to_string(),
+            data: None,
+        })?;
+        
+        let batch_id = parse_hash(params.get("batchId")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing 'batchId'".to_string(),
+                data: None,
+            })?)?;
+        
+        // For now, return a placeholder - full execution would require blockchain integration
+        let manager = batch_manager.read().await;
+        if let Some(batch) = manager.get_batch(&batch_id) {
+            Ok(json!({
+                "batchId": format!("0x{}", hex::encode(batch_id)),
+                "status": "executing",
+                "message": "Batch execution - full implementation requires blockchain integration",
+                "operationCount": batch.operation_count(),
+            }))
+        } else {
+            Err(JsonRpcError {
+                code: -32603,
+                message: "Batch not found".to_string(),
+                data: None,
+            })
+        }
+    }
+    
+    /// mds_getBatchStatus - Get status of a batch transaction
+    async fn mds_get_batch_status(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let batch_manager = self.batch_manager.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Batch manager not available".to_string(),
+                data: None,
+            })?;
+        
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Missing parameters".to_string(),
+            data: None,
+        })?;
+        
+        let batch_id = parse_hash(params.get("batchId")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing 'batchId'".to_string(),
+                data: None,
+            })?)?;
+        
+        let manager = batch_manager.read().await;
+        let batch = manager.get_batch(&batch_id)
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Batch not found".to_string(),
+                data: None,
+            })?;
+        
+        let results_json: Vec<Value> = batch.results.iter().map(|result| {
+            json!({
+                "operationIndex": result.operation_index,
+                "success": result.success,
+                "result": result.result.as_ref().map(|r| format!("0x{}", hex::encode(r))),
+                "error": result.error.clone(),
+                "gasUsed": format!("0x{:x}", result.gas_used),
+            })
+        }).collect();
+        
+        Ok(json!({
+            "batchId": format!("0x{}", hex::encode(batch_id)),
+            "walletAddress": format!("0x{}", hex::encode(batch.wallet_address)),
+            "status": match batch.status {
+                crate::account_abstraction::BatchStatus::Pending => "pending",
+                crate::account_abstraction::BatchStatus::Executing => "executing",
+                crate::account_abstraction::BatchStatus::Completed => "completed",
+                crate::account_abstraction::BatchStatus::Failed => "failed",
+                crate::account_abstraction::BatchStatus::Cancelled => "cancelled",
+            },
+            "operationCount": batch.operation_count(),
+            "completedOperations": batch.results.len(),
+            "gasUsed": format!("0x{:x}", batch.gas_used),
+            "gasLimit": format!("0x{:x}", batch.gas_limit),
+            "results": results_json,
+        }))
+    }
+    
+    /// mds_estimateBatchGas - Estimate gas cost for a batch
+    async fn mds_estimate_batch_gas(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let batch_manager = self.batch_manager.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Batch manager not available".to_string(),
+                data: None,
+            })?;
+        
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Missing parameters".to_string(),
+            data: None,
+        })?;
+        
+        let operations_array = params.get("operations")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing 'operations' array".to_string(),
+                data: None,
+            })?;
+        
+        let mut operations = Vec::new();
+        for op_json in operations_array {
+            let op_type = op_json.get("type")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| JsonRpcError {
+                    code: -32602,
+                    message: "Missing operation 'type'".to_string(),
+                    data: None,
+                })?;
+            
+            let operation = match op_type {
+                "transfer" => {
+                    let to = parse_address(op_json.get("to")
+                        .and_then(|v| v.as_str())
+                        .ok_or_else(|| JsonRpcError {
+                            code: -32602,
+                            message: "Missing 'to' for transfer".to_string(),
+                            data: None,
+                        })?)?;
+                    let value = parse_hex_u128(op_json.get("value")
+                        .and_then(|v| v.as_str())
+                        .ok_or_else(|| JsonRpcError {
+                            code: -32602,
+                            message: "Missing 'value' for transfer".to_string(),
+                            data: None,
+                        })?)?;
+                    crate::account_abstraction::BatchOperation::Transfer { to, value }
+                }
+                "contractCall" => {
+                    let contract = parse_address(op_json.get("contract")
+                        .and_then(|v| v.as_str())
+                        .ok_or_else(|| JsonRpcError {
+                            code: -32602,
+                            message: "Missing 'contract' for contractCall".to_string(),
+                            data: None,
+                        })?)?;
+                    let data = op_json.get("data")
+                        .and_then(|v| v.as_str())
+                        .map(|s| hex::decode(s.strip_prefix("0x").unwrap_or(s)).unwrap_or_default())
+                        .unwrap_or_default();
+                    let value = op_json.get("value")
+                        .and_then(|v| v.as_str())
+                        .map(|s| parse_hex_u128(s).unwrap_or(0))
+                        .unwrap_or(0);
+                    crate::account_abstraction::BatchOperation::ContractCall { contract, data, value }
+                }
+                "approval" => {
+                    let spender = parse_address(op_json.get("spender")
+                        .and_then(|v| v.as_str())
+                        .ok_or_else(|| JsonRpcError {
+                            code: -32602,
+                            message: "Missing 'spender' for approval".to_string(),
+                            data: None,
+                        })?)?;
+                    let amount = parse_hex_u128(op_json.get("amount")
+                        .and_then(|v| v.as_str())
+                        .ok_or_else(|| JsonRpcError {
+                            code: -32602,
+                            message: "Missing 'amount' for approval".to_string(),
+                            data: None,
+                        })?)?;
+                    crate::account_abstraction::BatchOperation::Approval { spender, amount }
+                }
+                _ => {
+                    return Err(JsonRpcError {
+                        code: -32602,
+                        message: format!("Unknown operation type: {}", op_type),
+                        data: None,
+                    });
+                }
+            };
+            operations.push(operation);
+        }
+        
+        let manager = batch_manager.read().await;
+        match manager.estimate_gas(&operations) {
+            Ok(estimate) => {
+                Ok(json!({
+                    "estimatedGas": format!("0x{:x}", estimate.total_gas),
+                    "gasBreakdown": {
+                        "baseGas": format!("0x{:x}", estimate.base_gas),
+                        "operationGas": format!("0x{:x}", estimate.operation_gas),
+                        "optimizationSavings": format!("0x{:x}", estimate.optimization_savings),
+                    },
                 }))
             }
             Err(e) => Err(JsonRpcError {
