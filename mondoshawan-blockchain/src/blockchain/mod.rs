@@ -79,6 +79,7 @@ impl Blockchain {
             oracle_registry: None,
             price_feed_manager: None,
             vrf_manager: None,
+            oracle_staking: None,
             recurring_manager: None,
             stop_loss_manager: None,
             privacy_manager: None,
@@ -102,6 +103,7 @@ impl Blockchain {
             oracle_registry: None,
             price_feed_manager: None,
             vrf_manager: None,
+            oracle_staking: None,
             recurring_manager: None,
             stop_loss_manager: None,
             privacy_manager: None,
@@ -122,6 +124,13 @@ impl Blockchain {
             evm_executor: None,
             parallel_evm_executor: None,
             wallet_registry: None,
+            oracle_registry: None,
+            price_feed_manager: None,
+            vrf_manager: None,
+            oracle_staking: None,
+            recurring_manager: None,
+            stop_loss_manager: None,
+            privacy_manager: None,
         };
         
         // Load existing blocks and state from storage
@@ -144,6 +153,13 @@ impl Blockchain {
             evm_executor: None,
             parallel_evm_executor: None,
             wallet_registry: None,
+            oracle_registry: None,
+            price_feed_manager: None,
+            vrf_manager: None,
+            oracle_staking: None,
+            recurring_manager: None,
+            stop_loss_manager: None,
+            privacy_manager: None,
         };
         
         // Load existing blocks and state from storage

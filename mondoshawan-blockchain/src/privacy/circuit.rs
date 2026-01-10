@@ -54,20 +54,26 @@ impl ConstraintSynthesizer<Fr> for PrivateTransferCircuit {
         &self,
         cs: &mut ConstraintSystem<Fr>,
     ) -> Result<(), SynthesisError> {
-        // Allocate witness variables
-        let old_balance_var = cs.alloc_input(
+        // Allocate witness variables using the correct API
+        // Note: arkworks 0.4 uses different method names
+        // For now, we'll use a simplified approach that works with the API
+        
+        // Allocate old_balance as witness
+        let old_balance_var = cs.alloc(
             || "old_balance",
             || self.old_balance.ok_or(SynthesisError::AssignmentMissing)
                 .map(|b| Fr::from(b))
         )?;
 
+        // Allocate amount as witness
         let amount_var = cs.alloc(
             || "amount",
             || self.amount.ok_or(SynthesisError::AssignmentMissing)
                 .map(|a| Fr::from(a))
         )?;
 
-        let new_balance_var = cs.alloc_output(
+        // Allocate new_balance as public input
+        let new_balance_var = cs.alloc_input(
             || "new_balance",
             || self.new_balance.ok_or(SynthesisError::AssignmentMissing)
                 .map(|b| Fr::from(b))
@@ -89,14 +95,14 @@ impl ConstraintSynthesizer<Fr> for PrivateTransferCircuit {
         // Constraint 3: Nullifier is valid (simplified)
         // In production, this would verify nullifier = hash(receiver_secret, note_index)
         // For now, just allocate nullifier as public input
-        let nullifier_var = cs.alloc_input(
+        let _nullifier_var = cs.alloc_input(
             || "nullifier",
             || Ok(self.nullifier)
         )?;
         
         // Constraint 4: Commitment is valid (simplified)
         // In production, this would verify commitment = PedersenCommit(amount, blinding)
-        let commitment_var = cs.alloc_output(
+        let _commitment_var = cs.alloc_input(
             || "commitment",
             || self.commitment.ok_or(SynthesisError::AssignmentMissing)
         )?;

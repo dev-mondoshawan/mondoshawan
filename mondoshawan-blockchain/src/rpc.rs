@@ -6100,10 +6100,12 @@ impl RpcServer {
                 data: None,
             })?;
 
-        let nullifier_count = privacy_manager.nullifier_count().await;
+        let manager = privacy_manager.read().await;
+        let nullifier_count = manager.nullifier_count().await;
+        let enabled = manager.is_enabled();
 
         Ok(json!({
-            "enabled": privacy_manager.is_enabled(),
+            "enabled": enabled,
             "nullifier_count": nullifier_count,
             "message": "Privacy layer statistics"
         }))

@@ -135,6 +135,11 @@ impl PrivacyManager {
         let set = self.nullifier_set.read().await;
         set.len()
     }
+
+    /// Check if privacy is enabled
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
 }
 
 impl Default for PrivacyManager {
