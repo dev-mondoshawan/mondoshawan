@@ -36,16 +36,6 @@ impl ParallelTransactionProcessor {
     pub fn executor(&self) -> &Arc<RwLock<ParallelEvmExecutor>> {
         &self.executor
     }
-
-    /// Estimate if parallel execution would help for a set of transactions
-    pub fn estimate_improvement(&self, transactions: &[Transaction]) -> f64 {
-        // This would need async runtime, so for now return estimate
-        if let Ok(executor) = self.executor.try_read() {
-            executor.estimate_improvement(transactions)
-        } else {
-            1.0
-        }
-    }
 }
 
 /// Helper to analyze transactions for parallel execution
