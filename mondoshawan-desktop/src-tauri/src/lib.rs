@@ -460,6 +460,280 @@ fn get_accounts(accounts: State<'_, Arc<Mutex<Accounts>>>) -> Result<Vec<Account
 }
 
 // ----------------------------------------------------------------------------
+// Account Abstraction Commands
+// ----------------------------------------------------------------------------
+
+#[tauri::command]
+async fn create_wallet(
+    rpc: State<'_, RpcConfig>,
+    wallet_type: String,
+    owner: String,
+    config: Value,
+) -> Result<Value, String> {
+    let params = Some(serde_json::json!({
+        "wallet_type": wallet_type,
+        "owner": owner,
+        "config": config
+    }));
+    call_rpc(&rpc, "mds_createWallet", params).await
+}
+
+#[tauri::command]
+async fn get_wallet(rpc: State<'_, RpcConfig>, address: String) -> Result<Value, String> {
+    let params = Some(serde_json::json!([address]));
+    call_rpc(&rpc, "mds_getWallet", params).await
+}
+
+#[tauri::command]
+async fn get_owner_wallets(rpc: State<'_, RpcConfig>, owner: String) -> Result<Value, String> {
+    let params = Some(serde_json::json!([owner]));
+    call_rpc(&rpc, "mds_getOwnerWallets", params).await
+}
+
+#[tauri::command]
+async fn is_contract_wallet(rpc: State<'_, RpcConfig>, address: String) -> Result<bool, String> {
+    let params = Some(serde_json::json!([address]));
+    let result = call_rpc(&rpc, "mds_isContractWallet", params).await?;
+    result.as_bool().ok_or("Invalid response".to_string())
+}
+
+#[tauri::command]
+async fn create_multisig_transaction(
+    rpc: State<'_, RpcConfig>,
+    wallet_address: String,
+    to: String,
+    value: String,
+    data: Option<String>,
+) -> Result<Value, String> {
+    let params = Some(serde_json::json!({
+        "wallet_address": wallet_address,
+        "to": to,
+        "value": value,
+        "data": data
+    }));
+    call_rpc(&rpc, "mds_createMultisigTransaction", params).await
+}
+
+#[tauri::command]
+async fn add_multisig_signature(
+    rpc: State<'_, RpcConfig>,
+    tx_hash: String,
+    signer: String,
+    signature: String,
+) -> Result<Value, String> {
+    let params = Some(serde_json::json!({
+        "tx_hash": tx_hash,
+        "signer": signer,
+        "signature": signature
+    }));
+    call_rpc(&rpc, "mds_addMultisigSignature", params).await
+}
+
+#[tauri::command]
+async fn get_pending_multisig_transactions(
+    rpc: State<'_, RpcConfig>,
+    wallet_address: String,
+) -> Result<Value, String> {
+    let params = Some(serde_json::json!([wallet_address]));
+    call_rpc(&rpc, "mds_getPendingMultisigTransactions", params).await
+}
+
+#[tauri::command]
+async fn initiate_recovery(
+    rpc: State<'_, RpcConfig>,
+    wallet_address: String,
+    new_owner: String,
+) -> Result<Value, String> {
+    let params = Some(serde_json::json!({
+        "wallet_address": wallet_address,
+        "new_owner": new_owner
+    }));
+    call_rpc(&rpc, "mds_initiateRecovery", params).await
+}
+
+#[tauri::command]
+async fn approve_recovery(
+    rpc: State<'_, RpcConfig>,
+    request_id: String,
+    guardian_address: String,
+) -> Result<Value, String> {
+    let params = Some(serde_json::json!({
+        "request_id": request_id,
+        "guardian_address": guardian_address
+    }));
+    call_rpc(&rpc, "mds_approveRecovery", params).await
+}
+
+#[tauri::command]
+async fn get_recovery_status(
+    rpc: State<'_, RpcConfig>,
+    request_id: String,
+) -> Result<Value, String> {
+    let params = Some(serde_json::json!([request_id]));
+    call_rpc(&rpc, "mds_getRecoveryStatus", params).await
+}
+
+#[tauri::command]
+async fn complete_recovery(
+    rpc: State<'_, RpcConfig>,
+    request_id: String,
+) -> Result<Value, String> {
+    let params = Some(serde_json::json!([request_id]));
+    call_rpc(&rpc, "mds_completeRecovery", params).await
+}
+
+#[tauri::command]
+async fn cancel_recovery(
+    rpc: State<'_, RpcConfig>,
+    request_id: String,
+) -> Result<Value, String> {
+    let params = Some(serde_json::json!([request_id]));
+    call_rpc(&rpc, "mds_cancelRecovery", params).await
+}
+
+#[tauri::command]
+async fn create_batch_transaction(
+    rpc: State<'_, RpcConfig>,
+    wallet_address: String,
+    operations: Value,
+) -> Result<Value, String> {
+    let params = Some(serde_json::json!({
+        "wallet_address": wallet_address,
+        "operations": operations
+    }));
+    call_rpc(&rpc, "mds_createBatchTransaction", params).await
+}
+
+#[tauri::command]
+async fn execute_batch_transaction(
+    rpc: State<'_, RpcConfig>,
+    batch_id: String,
+) -> Result<Value, String> {
+    let params = Some(serde_json::json!([batch_id]));
+    call_rpc(&rpc, "mds_executeBatchTransaction", params).await
+}
+
+#[tauri::command]
+async fn get_batch_status(
+    rpc: State<'_, RpcConfig>,
+    batch_id: String,
+) -> Result<Value, String> {
+    let params = Some(serde_json::json!([batch_id]));
+    call_rpc(&rpc, "mds_getBatchStatus", params).await
+}
+
+#[tauri::command]
+async fn estimate_batch_gas(
+    rpc: State<'_, RpcConfig>,
+    operations: Value,
+) -> Result<Value, String> {
+    let params = Some(serde_json::json!([operations]));
+    call_rpc(&rpc, "mds_estimateBatchGas", params).await
+}
+
+// ----------------------------------------------------------------------------
+// Parallel EVM Commands
+// ----------------------------------------------------------------------------
+
+#[tauri::command]
+async fn enable_parallel_evm(
+    rpc: State<'_, RpcConfig>,
+    enabled: bool,
+) -> Result<Value, String> {
+    let params = Some(serde_json::json!({"enabled": enabled}));
+    call_rpc(&rpc, "mds_enableParallelEVM", params).await
+}
+
+#[tauri::command]
+async fn get_parallel_evm_stats(rpc: State<'_, RpcConfig>) -> Result<Value, String> {
+    call_rpc(&rpc, "mds_getParallelEVMStats", None).await
+}
+
+#[tauri::command]
+async fn estimate_parallel_improvement(
+    rpc: State<'_, RpcConfig>,
+    transactions: Value,
+) -> Result<Value, String> {
+    let params = Some(serde_json::json!([transactions]));
+    call_rpc(&rpc, "mds_estimateParallelImprovement", params).await
+}
+
+// ----------------------------------------------------------------------------
+// Quick Wins Commands
+// ----------------------------------------------------------------------------
+
+#[tauri::command]
+async fn create_time_locked_transaction(
+    rpc: State<'_, RpcConfig>,
+    from: String,
+    to: String,
+    value: String,
+    fee: String,
+    execute_at_block: Option<u64>,
+    execute_at_timestamp: Option<u64>,
+) -> Result<Value, String> {
+    let mut params_obj = serde_json::json!({
+        "from": from,
+        "to": to,
+        "value": value,
+        "fee": fee
+    });
+    if let Some(block) = execute_at_block {
+        params_obj["execute_at_block"] = serde_json::json!(block);
+    }
+    if let Some(timestamp) = execute_at_timestamp {
+        params_obj["execute_at_timestamp"] = serde_json::json!(timestamp);
+    }
+    let params = Some(params_obj);
+    call_rpc(&rpc, "mds_createTimeLockedTransaction", params).await
+}
+
+#[tauri::command]
+async fn get_time_locked_transactions(rpc: State<'_, RpcConfig>) -> Result<Value, String> {
+    call_rpc(&rpc, "mds_getTimeLockedTransactions", None).await
+}
+
+#[tauri::command]
+async fn create_gasless_transaction(
+    rpc: State<'_, RpcConfig>,
+    from: String,
+    to: String,
+    value: String,
+    fee: String,
+    sponsor: String,
+) -> Result<Value, String> {
+    let params = Some(serde_json::json!({
+        "from": from,
+        "to": to,
+        "value": value,
+        "fee": fee,
+        "sponsor": sponsor
+    }));
+    call_rpc(&rpc, "mds_createGaslessTransaction", params).await
+}
+
+#[tauri::command]
+async fn get_sponsored_transactions(
+    rpc: State<'_, RpcConfig>,
+    sponsor: String,
+) -> Result<Value, String> {
+    let params = Some(serde_json::json!([sponsor]));
+    call_rpc(&rpc, "mds_getSponsoredTransactions", params).await
+}
+
+#[tauri::command]
+async fn get_reputation(rpc: State<'_, RpcConfig>, address: String) -> Result<Value, String> {
+    let params = Some(serde_json::json!([address]));
+    call_rpc(&rpc, "mds_getReputation", params).await
+}
+
+#[tauri::command]
+async fn get_reputation_factors(rpc: State<'_, RpcConfig>, address: String) -> Result<Value, String> {
+    let params = Some(serde_json::json!([address]));
+    call_rpc(&rpc, "mds_getReputationFactors", params).await
+}
+
+// ----------------------------------------------------------------------------
 // Transaction Signing & Sending
 // ----------------------------------------------------------------------------
 
@@ -634,6 +908,34 @@ pub fn run() {
             remove_account,
             get_accounts,
             get_mining_dashboard,
+            // Account Abstraction
+            create_wallet,
+            get_wallet,
+            get_owner_wallets,
+            is_contract_wallet,
+            create_multisig_transaction,
+            add_multisig_signature,
+            get_pending_multisig_transactions,
+            initiate_recovery,
+            approve_recovery,
+            get_recovery_status,
+            complete_recovery,
+            cancel_recovery,
+            create_batch_transaction,
+            execute_batch_transaction,
+            get_batch_status,
+            estimate_batch_gas,
+            // Parallel EVM
+            enable_parallel_evm,
+            get_parallel_evm_stats,
+            estimate_parallel_improvement,
+            // Quick Wins
+            create_time_locked_transaction,
+            get_time_locked_transactions,
+            create_gasless_transaction,
+            get_sponsored_transactions,
+            get_reputation,
+            get_reputation_factors,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Mondoshawan Desktop");

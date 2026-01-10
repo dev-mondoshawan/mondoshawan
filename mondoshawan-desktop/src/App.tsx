@@ -47,7 +47,7 @@ type ShardStats = {
 };
 
 function App() {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "wallet" | "send" | "history" | "explorer" | "metrics">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "wallet" | "send" | "history" | "explorer" | "metrics" | "account-abstraction">("dashboard");
   
   // Node & mining state
   const [nodeStatus, setNodeStatus] = useState<NodeStatus | null>(null);
@@ -91,6 +91,35 @@ function App() {
   const [accountName, setAccountName] = useState("");
   const [accountAddress, setAccountAddress] = useState("");
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
+  
+  // Account Abstraction state
+  const [wallets, setWallets] = useState<any[]>([]);
+  const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
+  const [walletType, setWalletType] = useState<"basic" | "multisig" | "social" | "spending" | "combined">("basic");
+  const [walletOwner, setWalletOwner] = useState<string>("");
+  const [multisigSigners, setMultisigSigners] = useState<string[]>([]);
+  const [multisigThreshold, setMultisigThreshold] = useState<number>(2);
+  const [guardians, setGuardians] = useState<string[]>([]);
+  const [recoveryThreshold, setRecoveryThreshold] = useState<number>(2);
+  const [spendingLimit, setSpendingLimit] = useState<string>("");
+  const [pendingMultisigTxs, setPendingMultisigTxs] = useState<any[]>([]);
+  const [recoveryStatus, setRecoveryStatus] = useState<any | null>(null);
+  const [batchOperations, setBatchOperations] = useState<any[]>([]);
+  
+  // Parallel EVM state
+  const [parallelEVMEnabled, setParallelEVMEnabled] = useState<boolean>(false);
+  const [parallelEVMStats, setParallelEVMStats] = useState<any | null>(null);
+  
+  // Reputation state
+  const [reputation, setReputation] = useState<any | null>(null);
+  const [reputationFactors, setReputationFactors] = useState<any | null>(null);
+  
+  // Time-locked & Gasless state
+  const [isTimeLocked, setIsTimeLocked] = useState<boolean>(false);
+  const [executeAtBlock, setExecuteAtBlock] = useState<string>("");
+  const [executeAtTimestamp, setExecuteAtTimestamp] = useState<string>("");
+  const [isGasless, setIsGasless] = useState<boolean>(false);
+  const [sponsorAddress, setSponsorAddress] = useState<string>("");
   
   // Common state
   const [loading, setLoading] = useState(false);
@@ -912,6 +941,62 @@ function App() {
                   marginTop: "0.25rem"
                 }}>{walletNonceHex}</p>
               </div>
+            </div>
+          )}
+
+          {/* Reputation Display */}
+          {walletAddress && reputation && (
+            <div
+              style={{
+                marginTop: "1.5rem",
+                padding: "1.25rem",
+                borderRadius: 12,
+                background: "rgba(16, 185, 129, 0.1)",
+                border: "1px solid rgba(16, 185, 129, 0.3)",
+                backdropFilter: "blur(8px)",
+              }}
+            >
+              <h3 style={{ fontSize: "1.1rem", marginBottom: "1rem", fontWeight: "600", color: "#f8fafc" }}>
+                ⭐ Reputation
+              </h3>
+              <div style={{ marginBottom: "0.75rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+                  <strong style={{ color: "#94a3b8", fontSize: "0.9rem" }}>Score</strong>
+                  <span style={{ 
+                    color: reputation.score >= 80 ? "#10b981" : reputation.score >= 40 ? "#fbbf24" : "#ef4444",
+                    fontSize: "1.5rem",
+                    fontWeight: "700"
+                  }}>
+                    {reputation.score}/100
+                  </span>
+                </div>
+                <div style={{ 
+                  color: reputation.level === "High" ? "#10b981" : reputation.level === "Medium" ? "#fbbf24" : "#ef4444",
+                  fontSize: "0.95rem",
+                  fontWeight: "600"
+                }}>
+                  Level: {reputation.level}
+                </div>
+              </div>
+              {reputationFactors && (
+                <div style={{ 
+                  marginTop: "1rem", 
+                  padding: "1rem", 
+                  background: "rgba(2, 6, 23, 0.6)", 
+                  borderRadius: 8,
+                  fontSize: "0.85rem"
+                }}>
+                  <div style={{ marginBottom: "0.5rem", color: "#94a3b8" }}>Factors:</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.5rem" }}>
+                    <div>✅ Successful: {reputationFactors.successful_txs || 0}</div>
+                    <div>❌ Failed: {reputationFactors.failed_txs || 0}</div>
+                    <div>⛏️ Blocks: {reputationFactors.blocks_mined || 0}</div>
+                    <div>📅 Age: {reputationFactors.account_age_days || 0} days</div>
+                    <div>💰 Value: {((reputationFactors.total_value_transacted || 0) / 1e18).toFixed(2)} MSHW</div>
+                    <div>👥 Contacts: {reputationFactors.unique_contacts || 0}</div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </section>
