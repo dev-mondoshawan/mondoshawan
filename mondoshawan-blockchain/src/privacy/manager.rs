@@ -59,11 +59,36 @@ impl PrivacyManager {
         
         // Extract nullifier from public inputs (simplified)
         // In production, would properly parse public inputs
-        
-        // Add nullifier to set
-        // This would happen after proof verification
+        // Format: public_inputs[0] = nullifier
+        if let Some(nullifier_bytes) = tx.public_inputs.get(0) {
+            if nullifier_bytes.len() == 32 {
+                let mut nullifier_hash = [0u8; 32];
+                nullifier_hash.copy_from_slice(nullifier_bytes);
+                let nullifier = Nullifier { hash: nullifier_hash };
+                
+                // Check if already spent
+                if self.is_nullifier_spent(&nullifier).await {
+                    return Err("Nullifier already spent (double-spend attempt)".to_string());
+                }
+                
+                // Add nullifier to set (mark as spent)
+                self.add_nullifier(nullifier).await?;
+            }
+        }
         
         Ok(())
+    }
+
+    /// Extract nullifier from privacy transaction
+    pub fn extract_nullifier(tx: &PrivacyTransaction) -> Option<Nullifier> {
+        if let Some(nullifier_bytes) = tx.public_inputs.get(0) {
+            if nullifier_bytes.len() == 32 {
+                let mut nullifier_hash = [0u8; 32];
+                nullifier_hash.copy_from_slice(nullifier_bytes);
+                return Some(Nullifier { hash: nullifier_hash });
+            }
+        }
+        None
     }
 
     /// Get nullifier set size

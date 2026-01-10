@@ -57,6 +57,8 @@ pub struct Blockchain {
     
     // Stop-Loss
     stop_loss_manager: Option<Arc<tokio::sync::RwLock<crate::stop_loss::StopLossManager>>>,
+    // Privacy Layer
+    privacy_manager: Option<Arc<tokio::sync::RwLock<crate::privacy::PrivacyManager>>>,
 }
 
 impl Blockchain {
@@ -79,6 +81,7 @@ impl Blockchain {
             vrf_manager: None,
             recurring_manager: None,
             stop_loss_manager: None,
+            privacy_manager: None,
         }
     }
     
@@ -101,6 +104,7 @@ impl Blockchain {
             vrf_manager: None,
             recurring_manager: None,
             stop_loss_manager: None,
+            privacy_manager: None,
         }
     }
 
@@ -326,6 +330,11 @@ impl Blockchain {
 
     /// Validate a single transaction
     fn validate_transaction(&self, tx: &Transaction, current_block: u64, current_timestamp: u64) -> crate::error::BlockchainResult<()> {
+        // For privacy transactions, validate zk-SNARK proof instead of signature
+        if let Some(ref privacy_tx) = tx.privacy_data {
+            return self.validate_privacy_transaction(tx, privacy_tx);
+        }
+        
         // For multi-signature transactions, validate multi-sig instead of single signature
         if let Some(ref multisig_sigs) = tx.multisig_signatures {
             // This is a multi-sig transaction - validate multi-sig
@@ -518,6 +527,11 @@ impl Blockchain {
 
     /// Process a transaction and update state
     fn process_transaction(&mut self, tx: &Transaction) -> crate::error::BlockchainResult<()> {
+        // Handle privacy transactions differently
+        if let Some(ref privacy_tx) = tx.privacy_data {
+            return self.process_privacy_transaction(tx, privacy_tx);
+        }
+        
         // Handle gasless transactions: sponsor pays fee, sender pays value
         // Handle regular transactions: sender pays both value and fee
         

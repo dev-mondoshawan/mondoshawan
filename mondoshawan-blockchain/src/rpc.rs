@@ -539,6 +539,11 @@ impl RpcServer {
             "mds_updateStopLossPrice" => self.mds_update_stop_loss_price(request.params).await,
             "mds_pauseStopLoss" => self.mds_pause_stop_loss(request.params).await,
             "mds_resumeStopLoss" => self.mds_resume_stop_loss(request.params).await,
+            // Privacy Operations
+            "mds_createPrivateTransaction" => self.mds_create_private_transaction(request.params).await,
+            "mds_verifyPrivacyProof" => self.mds_verify_privacy_proof(request.params).await,
+            "mds_proveBalance" => self.mds_prove_balance(request.params).await,
+            "mds_getPrivacyStats" => self.mds_get_privacy_stats().await,
             _ => Err(JsonRpcError {
                 code: -32601,
                 message: format!("Method not found: {}", request.method),

@@ -77,6 +77,10 @@ pub struct Transaction {
     /// Format: Vec<(signer_address, signature_bytes, public_key_bytes)>
     #[serde(skip_serializing_if = "Option::is_none")]
     pub multisig_signatures: Option<Vec<(Address, Vec<u8>, Vec<u8>)>>,
+    /// Privacy transaction: zk-SNARK proof and privacy data
+    /// If present, this is a private transaction (hidden sender, receiver, amount)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub privacy_data: Option<crate::privacy::PrivacyTransaction>,
 }
 
 impl Transaction {
