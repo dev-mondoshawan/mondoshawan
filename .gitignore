@@ -118,6 +118,11 @@ PROJECT_REVIEW*.md
 GITHUB_PUSH*.md
 PUBLIC_REPO*.md
 update_whitepaper*.ps1
+# Internal strategy documents
+PRESALE_LAUNCH_GUIDE.md
+LIQUIDITY_AND_EXCHANGE_STRATEGY.md
+OPEN_SOURCE_STRATEGY.md
+LEGAL_PROTECTION_CHECKLIST.md
 
 # Development scripts (except essential deployment scripts)
 *.ps1
