@@ -425,7 +425,12 @@ function App() {
     setError(null);
     try {
       const wallet = await invoke<any>("get_wallet", { address: address });
-      alert(`Wallet Details:\n\nType: ${wallet.wallet_type}\nAddress: ${wallet.address}\nOwner: ${wallet.owner}\nNonce: ${wallet.nonce || 0}`);
+      alert(`Wallet Details:
+
+Type: ${wallet.wallet_type}
+Address: ${wallet.address}
+Owner: ${wallet.owner}
+Nonce: ${wallet.nonce || 0}`);
     } catch (e: any) {
       setError(e?.toString?.() ?? "Failed to load wallet details");
     } finally {
@@ -768,6 +773,28 @@ function App() {
           }}
         >
           Metrics
+        </button>
+        <button
+          onClick={() => setActiveTab("account-abstraction")}
+          style={{
+            padding: "0.75rem 1.5rem",
+            borderRadius: 8,
+            border: "none",
+            cursor: "pointer",
+            background: activeTab === "account-abstraction" 
+              ? "linear-gradient(135deg, #8b5cf6, #7c3aed)" 
+              : "rgba(30, 41, 59, 0.7)",
+            color: "#f8fafc",
+            fontWeight: "600",
+            fontSize: "0.95rem",
+            boxShadow: activeTab === "account-abstraction" 
+              ? "0 4px 12px rgba(139, 92, 246, 0.3)" 
+              : "none",
+            transition: "all 0.3s ease",
+            backdropFilter: "blur(12px)"
+          }}
+        >
+          Account Abstraction
         </button>
       </div>
 
