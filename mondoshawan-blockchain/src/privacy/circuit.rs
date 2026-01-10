@@ -3,6 +3,7 @@
 //! Defines circuits for private transfers and other privacy operations.
 
 use ark_bn254::Fr;
+use ark_ff::PrimeField;
 use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystem, SynthesisError, Variable};
 
 // Helper macro for linear combinations
@@ -50,7 +51,7 @@ pub struct PrivateTransferCircuit {
 
 impl ConstraintSynthesizer<Fr> for PrivateTransferCircuit {
     fn generate_constraints(
-        &self,
+        self,
         cs: &mut ConstraintSystem<Fr>,
     ) -> Result<(), SynthesisError> {
         // Allocate witness variables using the correct API
@@ -82,8 +83,8 @@ impl ConstraintSynthesizer<Fr> for PrivateTransferCircuit {
         // This means: old_balance = amount + new_balance
         // We enforce: old_balance * 1 = (amount + new_balance) * 1
         cs.enforce_constraint(
-            lc!() + (Variable::One, Fr::one()) + old_balance_var,
-            lc!() + (Variable::One, Fr::one()),
+            lc!() + (Variable::One, Fr::ONE) + old_balance_var,
+            lc!() + (Variable::One, Fr::ONE),
             lc!() + amount_var + new_balance_var,
         )?;
 
