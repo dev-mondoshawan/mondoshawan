@@ -4,7 +4,7 @@
 
 use ark_bn254::Fr;
 use ark_ff::PrimeField;
-use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystem, SynthesisError, Variable};
+use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisError, Variable};
 
 // Helper macro for linear combinations
 macro_rules! lc {
@@ -52,7 +52,7 @@ pub struct PrivateTransferCircuit {
 impl ConstraintSynthesizer<Fr> for PrivateTransferCircuit {
     fn generate_constraints(
         self,
-        cs: &mut ConstraintSystem<Fr>,
+        cs: ConstraintSystemRef<Fr>,
     ) -> Result<(), SynthesisError> {
         // Allocate witness variables using the correct API
         // arkworks 0.4 uses new_witness_variable and new_input_variable
