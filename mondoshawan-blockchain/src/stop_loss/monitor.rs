@@ -35,7 +35,7 @@ impl StopLossMonitor {
         
         // Get all active orders
         let active_orders: Vec<(Hash, StopLossOrder)> = manager_read
-            .orders
+            .get_all_orders()
             .iter()
             .filter(|(_, order)| order.status == crate::stop_loss::manager::StopLossStatus::Active)
             .map(|(id, order)| (*id, order.clone()))

@@ -199,6 +199,11 @@ impl StopLossManager {
             .collect()
     }
 
+    /// Get all orders (for internal use by monitor)
+    pub fn get_all_orders(&self) -> &HashMap<Hash, StopLossOrder> {
+        &self.orders
+    }
+
     /// Mark order as triggered
     pub fn mark_triggered(
         &mut self,

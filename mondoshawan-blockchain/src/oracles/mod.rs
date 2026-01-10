@@ -13,7 +13,6 @@ pub use price_feed::{PriceFeedManager, PriceFeed, PriceUpdate};
 pub use vrf::{VrfManager, RandomnessRequest, RandomnessProof};
 pub use staking::{OracleStaking, StakingInfo};
 
-use crate::types::Address;
 use serde::{Deserialize, Serialize};
 
 /// Oracle network configuration

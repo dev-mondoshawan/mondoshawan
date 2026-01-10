@@ -72,6 +72,18 @@ pub struct RpcServer {
     batch_manager: Option<Arc<tokio::sync::RwLock<crate::account_abstraction::BatchManager>>>,
     /// Parallel EVM executor
     parallel_evm_executor: Option<Arc<tokio::sync::RwLock<crate::evm::parallel::ParallelEvmExecutor>>>,
+    /// Oracle registry for price feeds and randomness
+    oracle_registry: Option<Arc<tokio::sync::RwLock<crate::oracles::OracleRegistry>>>,
+    /// Price feed manager
+    price_feed_manager: Option<Arc<tokio::sync::RwLock<crate::oracles::PriceFeedManager>>>,
+    /// VRF manager for randomness
+    vrf_manager: Option<Arc<tokio::sync::RwLock<crate::oracles::VrfManager>>>,
+    /// Oracle staking manager
+    oracle_staking: Option<Arc<tokio::sync::RwLock<crate::oracles::OracleStaking>>>,
+    /// Recurring transaction manager
+    recurring_manager: Option<Arc<tokio::sync::RwLock<crate::recurring::RecurringTransactionManager>>>,
+    /// Stop-loss manager
+    stop_loss_manager: Option<Arc<tokio::sync::RwLock<crate::stop_loss::StopLossManager>>>,
     /// API key for authentication (if None, authentication is disabled)
     api_key: Option<String>,
     /// Methods that don't require authentication (public methods)
@@ -107,6 +119,12 @@ impl RpcServer {
             social_recovery_manager: None,
             batch_manager: None,
             parallel_evm_executor: None,
+            oracle_registry: None,
+            price_feed_manager: None,
+            vrf_manager: None,
+            oracle_staking: None,
+            recurring_manager: None,
+            stop_loss_manager: None,
             api_key: None,
             public_methods,
         }
@@ -154,6 +172,12 @@ impl RpcServer {
             social_recovery_manager: None,
             batch_manager: None,
             parallel_evm_executor: None,
+            oracle_registry: None,
+            price_feed_manager: None,
+            vrf_manager: None,
+            oracle_staking: None,
+            recurring_manager: None,
+            stop_loss_manager: None,
             api_key: None,
             public_methods,
         }
@@ -202,6 +226,12 @@ impl RpcServer {
             social_recovery_manager: None,
             batch_manager: None,
             parallel_evm_executor: None,
+            oracle_registry: None,
+            price_feed_manager: None,
+            vrf_manager: None,
+            oracle_staking: None,
+            recurring_manager: None,
+            stop_loss_manager: None,
             api_key: None,
             public_methods,
         }
@@ -243,6 +273,12 @@ impl RpcServer {
             social_recovery_manager: None,
             batch_manager: None,
             parallel_evm_executor: None,
+            oracle_registry: None,
+            price_feed_manager: None,
+            vrf_manager: None,
+            oracle_staking: None,
+            recurring_manager: None,
+            stop_loss_manager: None,
             api_key: None,
             public_methods,
         }
@@ -478,6 +514,31 @@ impl RpcServer {
             "mds_enableParallelEVM" => self.mds_enable_parallel_evm(request.params).await,
             "mds_getParallelEVMStats" => self.mds_get_parallel_evm_stats(request.params).await,
             "mds_estimateParallelImprovement" => self.mds_estimate_parallel_improvement(request.params).await,
+            // Oracle Operations
+            "mds_registerOracle" => self.mds_register_oracle(request.params).await,
+            "mds_unregisterOracle" => self.mds_unregister_oracle(request.params).await,
+            "mds_getOracleInfo" => self.mds_get_oracle_info(request.params).await,
+            "mds_getOracleList" => self.mds_get_oracle_list(request.params).await,
+            "mds_getPrice" => self.mds_get_price(request.params).await,
+            "mds_getPriceHistory" => self.mds_get_price_history(request.params).await,
+            "mds_getPriceFeeds" => self.mds_get_price_feeds().await,
+            "mds_requestRandomness" => self.mds_request_randomness(request.params).await,
+            "mds_getRandomness" => self.mds_get_randomness(request.params).await,
+            // Recurring Transaction Operations
+            "mds_createRecurringTransaction" => self.mds_create_recurring_transaction(request.params).await,
+            "mds_cancelRecurringTransaction" => self.mds_cancel_recurring_transaction(request.params).await,
+            "mds_getRecurringTransaction" => self.mds_get_recurring_transaction(request.params).await,
+            "mds_getRecurringTransactions" => self.mds_get_recurring_transactions(request.params).await,
+            "mds_pauseRecurringTransaction" => self.mds_pause_recurring_transaction(request.params).await,
+            "mds_resumeRecurringTransaction" => self.mds_resume_recurring_transaction(request.params).await,
+            // Stop-Loss Operations
+            "mds_createStopLoss" => self.mds_create_stop_loss(request.params).await,
+            "mds_cancelStopLoss" => self.mds_cancel_stop_loss(request.params).await,
+            "mds_getStopLoss" => self.mds_get_stop_loss(request.params).await,
+            "mds_getStopLossOrders" => self.mds_get_stop_loss_orders(request.params).await,
+            "mds_updateStopLossPrice" => self.mds_update_stop_loss_price(request.params).await,
+            "mds_pauseStopLoss" => self.mds_pause_stop_loss(request.params).await,
+            "mds_resumeStopLoss" => self.mds_resume_stop_loss(request.params).await,
             _ => Err(JsonRpcError {
                 code: -32601,
                 message: format!("Method not found: {}", request.method),
@@ -4781,6 +4842,527 @@ impl RpcServer {
                 "message": "Parallel EVM executor not available"
             }))
         }
+    }
+
+    // ========== Oracle RPC Methods ==========
+
+    /// mds_registerOracle - Register a new oracle node
+    async fn mds_register_oracle(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let registry = self.oracle_registry.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Oracle registry not available".to_string(),
+                data: None,
+            })?;
+
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+
+        let address_str = params.as_object()
+            .and_then(|obj| obj.get("address"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing address parameter".to_string(),
+                data: None,
+            })?;
+
+        let address = parse_address(address_str)?;
+        let feed_types = params.as_object()
+            .and_then(|obj| obj.get("feed_types"))
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str())
+                    .filter_map(|s| match s {
+                        "price" => Some(crate::oracles::FeedType::Price),
+                        "randomness" => Some(crate::oracles::FeedType::Randomness),
+                        "custom" => Some(crate::oracles::FeedType::Custom),
+                        _ => None,
+                    })
+                    .collect()
+            })
+            .unwrap_or_else(|| vec![crate::oracles::FeedType::Price]);
+
+        let stake_str = params.as_object()
+            .and_then(|obj| obj.get("stake_amount"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing stake_amount parameter".to_string(),
+                data: None,
+            })?;
+
+        let stake_amount = parse_hex_u128(stake_str)?;
+        let current_time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        let mut registry = registry.write().await;
+        match registry.register_oracle(address, feed_types, stake_amount, current_time) {
+            Ok(_) => Ok(json!({
+                "success": true,
+                "address": format!("0x{}", hex::encode(address)),
+                "message": "Oracle registered successfully"
+            })),
+            Err(e) => Err(JsonRpcError {
+                code: -32603,
+                message: format!("Failed to register oracle: {}", e),
+                data: None,
+            }),
+        }
+    }
+
+    /// mds_getPrice - Get current price for a feed
+    async fn mds_get_price(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let price_feeds = self.price_feed_manager.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Price feed manager not available".to_string(),
+                data: None,
+            })?;
+
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+
+        let feed_id = params.as_object()
+            .and_then(|obj| obj.get("feed_id"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing feed_id parameter".to_string(),
+                data: None,
+            })?;
+
+        let price_feeds_read = price_feeds.read().await;
+        if let Some(price) = price_feeds_read.get_price(feed_id) {
+            Ok(json!({
+                "feed_id": feed_id,
+                "price": format!("0x{:x}", price),
+                "price_decimal": price.to_string(),
+            }))
+        } else {
+            Err(JsonRpcError {
+                code: -32603,
+                message: "Price feed not found".to_string(),
+                data: None,
+            })
+        }
+    }
+
+    /// mds_getPriceFeeds - Get all available price feeds
+    async fn mds_get_price_feeds(&self) -> Result<Value, JsonRpcError> {
+        let price_feeds = self.price_feed_manager.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Price feed manager not available".to_string(),
+                data: None,
+            })?;
+
+        let price_feeds_read = price_feeds.read().await;
+        let feeds: Vec<Value> = price_feeds_read.get_all_feeds()
+            .iter()
+            .map(|feed| {
+                json!({
+                    "feed_id": feed.feed_id,
+                    "asset_pair": {
+                        "base": feed.asset_pair.0,
+                        "quote": feed.asset_pair.1,
+                    },
+                    "current_price": format!("0x{:x}", feed.current_price),
+                    "last_update": feed.last_update,
+                    "oracle_count": feed.oracle_count,
+                })
+            })
+            .collect();
+
+        Ok(json!({ "feeds": feeds }))
+    }
+
+    /// mds_requestRandomness - Request verifiable randomness
+    async fn mds_request_randomness(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let vrf = self.vrf_manager.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "VRF manager not available".to_string(),
+                data: None,
+            })?;
+
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+
+        let requester_str = params.as_object()
+            .and_then(|obj| obj.get("requester"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing requester parameter".to_string(),
+                data: None,
+            })?;
+
+        let requester = parse_address(requester_str)?;
+        let seed_str = params.as_object()
+            .and_then(|obj| obj.get("seed"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing seed parameter".to_string(),
+                data: None,
+            })?;
+
+        let seed = parse_hash(seed_str)?;
+        let current_time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        let mut vrf = vrf.write().await;
+        let request_id = vrf.request_randomness(requester, seed, current_time);
+
+        Ok(json!({
+            "request_id": format!("0x{}", hex::encode(request_id)),
+            "requester": format!("0x{}", hex::encode(requester)),
+            "status": "pending"
+        }))
+    }
+
+    // ========== Recurring Transaction RPC Methods ==========
+
+    /// mds_createRecurringTransaction - Create a new recurring transaction
+    async fn mds_create_recurring_transaction(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let manager = self.recurring_manager.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Recurring transaction manager not available".to_string(),
+                data: None,
+            })?;
+
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+
+        let from_str = params.as_object()
+            .and_then(|obj| obj.get("from"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing from parameter".to_string(),
+                data: None,
+            })?;
+
+        let from = parse_address(from_str)?;
+        let to_str = params.as_object()
+            .and_then(|obj| obj.get("to"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing to parameter".to_string(),
+                data: None,
+            })?;
+
+        let to = parse_address(to_str)?;
+        let value_str = params.as_object()
+            .and_then(|obj| obj.get("value"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing value parameter".to_string(),
+                data: None,
+            })?;
+
+        let value = parse_hex_u128(value_str)?;
+
+        // Parse schedule (simplified - would need full schedule parsing)
+        let schedule = crate::recurring::Schedule::Daily { hour: 0, minute: 0 };
+        let current_time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        let mut manager = manager.write().await;
+        let recurring = manager.create_recurring(
+            from, to, value, schedule, current_time, None, None, current_time,
+        );
+
+        Ok(json!({
+            "recurring_tx_id": format!("0x{}", hex::encode(recurring.recurring_tx_id)),
+            "from": format!("0x{}", hex::encode(recurring.from)),
+            "to": format!("0x{}", hex::encode(recurring.to)),
+            "value": format!("0x{:x}", recurring.value),
+            "status": "active",
+            "next_execution": recurring.next_execution,
+        }))
+    }
+
+    /// mds_getRecurringTransactions - Get all recurring transactions for an address
+    async fn mds_get_recurring_transactions(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let manager = self.recurring_manager.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Recurring transaction manager not available".to_string(),
+                data: None,
+            })?;
+
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+
+        let address_str = params.as_object()
+            .and_then(|obj| obj.get("address"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing address parameter".to_string(),
+                data: None,
+            })?;
+
+        let address = parse_address(address_str)?;
+        let manager_read = manager.read().await;
+        let recurring_txs = manager_read.get_for_address(&address);
+
+        let txs: Vec<Value> = recurring_txs.iter().map(|tx| {
+            json!({
+                "recurring_tx_id": format!("0x{}", hex::encode(tx.recurring_tx_id)),
+                "from": format!("0x{}", hex::encode(tx.from)),
+                "to": format!("0x{}", hex::encode(tx.to)),
+                "value": format!("0x{:x}", tx.value),
+                "status": format!("{:?}", tx.status),
+                "next_execution": tx.next_execution,
+                "execution_count": tx.execution_count,
+            })
+        }).collect();
+
+        Ok(json!({ "recurring_transactions": txs }))
+    }
+
+    // ========== Stop-Loss RPC Methods ==========
+
+    /// mds_createStopLoss - Create a new stop-loss order
+    async fn mds_create_stop_loss(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let manager = self.stop_loss_manager.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Stop-loss manager not available".to_string(),
+                data: None,
+            })?;
+
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+
+        let wallet_str = params.as_object()
+            .and_then(|obj| obj.get("wallet_address"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing wallet_address parameter".to_string(),
+                data: None,
+            })?;
+
+        let wallet_address = parse_address(wallet_str)?;
+        let asset_pair = params.as_object()
+            .and_then(|obj| obj.get("asset_pair"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing asset_pair parameter".to_string(),
+                data: None,
+            })?;
+
+        let trigger_type_str = params.as_object()
+            .and_then(|obj| obj.get("trigger_type"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing trigger_type parameter".to_string(),
+                data: None,
+            })?;
+
+        let trigger_price_str = params.as_object()
+            .and_then(|obj| obj.get("trigger_price"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing trigger_price parameter".to_string(),
+                data: None,
+            })?;
+
+        let trigger_price = parse_hex_u128(trigger_price_str)?;
+        let trigger_type = match trigger_type_str {
+            "above" => crate::stop_loss::StopLossType::PriceAbove(trigger_price),
+            "below" => crate::stop_loss::StopLossType::PriceBelow(trigger_price),
+            _ => return Err(JsonRpcError {
+                code: -32602,
+                message: "Invalid trigger_type (must be 'above' or 'below')".to_string(),
+                data: None,
+            }),
+        };
+
+        // Create transaction (simplified - would need full transaction parsing)
+        let to_str = params.as_object()
+            .and_then(|obj| obj.get("to"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing to parameter".to_string(),
+                data: None,
+            })?;
+
+        let to = parse_address(to_str)?;
+        let value_str = params.as_object()
+            .and_then(|obj| obj.get("value"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing value parameter".to_string(),
+                data: None,
+            })?;
+
+        let value = parse_hex_u128(value_str)?;
+        let transaction = Transaction::new(wallet_address, to, value, 0, 0);
+
+        let oracle_feed_id = params.as_object()
+            .and_then(|obj| obj.get("oracle_feed_id"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+
+        let current_time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        let mut manager = manager.write().await;
+        let order = manager.create_stop_loss(
+            wallet_address,
+            asset_pair,
+            trigger_type,
+            transaction,
+            oracle_feed_id,
+            current_time,
+            None,
+        );
+
+        Ok(json!({
+            "stop_loss_id": format!("0x{}", hex::encode(order.stop_loss_id)),
+            "wallet_address": format!("0x{}", hex::encode(order.wallet_address)),
+            "asset_pair": order.asset_pair,
+            "status": "active",
+        }))
+    }
+
+    /// mds_getStopLossOrders - Get all stop-loss orders for an address
+    async fn mds_get_stop_loss_orders(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let manager = self.stop_loss_manager.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Stop-loss manager not available".to_string(),
+                data: None,
+            })?;
+
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+
+        let address_str = params.as_object()
+            .and_then(|obj| obj.get("address"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing address parameter".to_string(),
+                data: None,
+            })?;
+
+        let address = parse_address(address_str)?;
+        let manager_read = manager.read().await;
+        let orders = manager_read.get_for_address(&address);
+
+        let orders_json: Vec<Value> = orders.iter().map(|order| {
+            json!({
+                "stop_loss_id": format!("0x{}", hex::encode(order.stop_loss_id)),
+                "asset_pair": order.asset_pair,
+                "status": format!("{:?}", order.status),
+                "triggered_at": order.triggered_at,
+                "triggered_price": order.triggered_price.map(|p| format!("0x{:x}", p)),
+            })
+        }).collect();
+
+        Ok(json!({ "stop_loss_orders": orders_json }))
+    }
+
+    // Placeholder implementations for remaining methods
+    async fn mds_unregister_oracle(&self, _params: Option<Value>) -> Result<Value, JsonRpcError> {
+        Err(JsonRpcError { code: -32603, message: "Not yet implemented".to_string(), data: None })
+    }
+
+    async fn mds_get_oracle_info(&self, _params: Option<Value>) -> Result<Value, JsonRpcError> {
+        Err(JsonRpcError { code: -32603, message: "Not yet implemented".to_string(), data: None })
+    }
+
+    async fn mds_get_oracle_list(&self, _params: Option<Value>) -> Result<Value, JsonRpcError> {
+        Err(JsonRpcError { code: -32603, message: "Not yet implemented".to_string(), data: None })
+    }
+
+    async fn mds_get_price_history(&self, _params: Option<Value>) -> Result<Value, JsonRpcError> {
+        Err(JsonRpcError { code: -32603, message: "Not yet implemented".to_string(), data: None })
+    }
+
+    async fn mds_get_randomness(&self, _params: Option<Value>) -> Result<Value, JsonRpcError> {
+        Err(JsonRpcError { code: -32603, message: "Not yet implemented".to_string(), data: None })
+    }
+
+    async fn mds_cancel_recurring_transaction(&self, _params: Option<Value>) -> Result<Value, JsonRpcError> {
+        Err(JsonRpcError { code: -32603, message: "Not yet implemented".to_string(), data: None })
+    }
+
+    async fn mds_get_recurring_transaction(&self, _params: Option<Value>) -> Result<Value, JsonRpcError> {
+        Err(JsonRpcError { code: -32603, message: "Not yet implemented".to_string(), data: None })
+    }
+
+    async fn mds_pause_recurring_transaction(&self, _params: Option<Value>) -> Result<Value, JsonRpcError> {
+        Err(JsonRpcError { code: -32603, message: "Not yet implemented".to_string(), data: None })
+    }
+
+    async fn mds_resume_recurring_transaction(&self, _params: Option<Value>) -> Result<Value, JsonRpcError> {
+        Err(JsonRpcError { code: -32603, message: "Not yet implemented".to_string(), data: None })
+    }
+
+    async fn mds_cancel_stop_loss(&self, _params: Option<Value>) -> Result<Value, JsonRpcError> {
+        Err(JsonRpcError { code: -32603, message: "Not yet implemented".to_string(), data: None })
+    }
+
+    async fn mds_get_stop_loss(&self, _params: Option<Value>) -> Result<Value, JsonRpcError> {
+        Err(JsonRpcError { code: -32603, message: "Not yet implemented".to_string(), data: None })
+    }
+
+    async fn mds_update_stop_loss_price(&self, _params: Option<Value>) -> Result<Value, JsonRpcError> {
+        Err(JsonRpcError { code: -32603, message: "Not yet implemented".to_string(), data: None })
+    }
+
+    async fn mds_pause_stop_loss(&self, _params: Option<Value>) -> Result<Value, JsonRpcError> {
+        Err(JsonRpcError { code: -32603, message: "Not yet implemented".to_string(), data: None })
+    }
+
+    async fn mds_resume_stop_loss(&self, _params: Option<Value>) -> Result<Value, JsonRpcError> {
+        Err(JsonRpcError { code: -32603, message: "Not yet implemented".to_string(), data: None })
     }
 }
 

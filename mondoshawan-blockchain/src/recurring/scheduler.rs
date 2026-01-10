@@ -31,9 +31,8 @@ impl RecurringScheduler {
                 recurring.from,
                 recurring.to,
                 recurring.value,
+                0, // fee (will be calculated)
                 0, // nonce will be set by transaction pool
-                0, // gas_price
-                0, // gas_limit
             );
             
             transactions.push(tx);

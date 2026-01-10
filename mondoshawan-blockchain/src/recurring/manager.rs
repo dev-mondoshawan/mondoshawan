@@ -138,7 +138,7 @@ impl RecurringTransaction {
         hasher.update(&from);
         hasher.update(&to);
         hasher.update(&value.to_le_bytes());
-        hasher.update(&bincode::serialize(schedule).unwrap());
+        hasher.update(&serde_json::to_string(schedule).unwrap().as_bytes());
         hasher.update(&created_at.to_le_bytes());
         hasher.finalize().into()
     }
