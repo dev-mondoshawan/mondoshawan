@@ -1,4 +1,6 @@
 [package]
+# Copyright (c) 2026 Mondoshawan Protocol
+# Licensed under the MIT License (see LICENSE file)
 name = "mondoshawan-blockchain"
 version = "0.1.0"
 edition = "2021"
