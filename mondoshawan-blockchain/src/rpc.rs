@@ -84,6 +84,8 @@ pub struct RpcServer {
     recurring_manager: Option<Arc<tokio::sync::RwLock<crate::recurring::RecurringTransactionManager>>>,
     /// Stop-loss manager
     stop_loss_manager: Option<Arc<tokio::sync::RwLock<crate::stop_loss::StopLossManager>>>,
+    /// Privacy manager
+    privacy_manager: Option<Arc<tokio::sync::RwLock<crate::privacy::PrivacyManager>>>,
     /// API key for authentication (if None, authentication is disabled)
     api_key: Option<String>,
     /// Methods that don't require authentication (public methods)

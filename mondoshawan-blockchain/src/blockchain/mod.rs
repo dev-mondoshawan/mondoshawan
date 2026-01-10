@@ -525,6 +525,37 @@ impl Blockchain {
         Ok(())
     }
 
+    /// Validate privacy transaction (zk-SNARK proof)
+    fn validate_privacy_transaction(
+        &self,
+        tx: &Transaction,
+        privacy_tx: &crate::privacy::PrivacyTransaction,
+    ) -> crate::error::BlockchainResult<()> {
+        // Check if privacy manager is available
+        let privacy_manager = self.privacy_manager.as_ref()
+            .ok_or_else(|| crate::error::BlockchainError::InvalidTransaction(
+                "Privacy manager not available".to_string()
+            ))?;
+
+        // Verify zk-SNARK proof (would use verifier here)
+        // For now, basic validation
+        if privacy_tx.proof.is_empty() {
+            return Err(crate::error::BlockchainError::InvalidTransaction(
+                "Privacy transaction missing proof".to_string()
+            ));
+        }
+
+        // Check nullifier (prevent double-spending)
+        // Extract nullifier from public inputs
+        // In production, would properly parse public inputs
+        // For now, simplified check
+        
+        // TODO: Deserialize proof and verify using PrivacyVerifier
+        // TODO: Check nullifier in nullifier set
+        
+        Ok(())
+    }
+
     /// Process a transaction and update state
     fn process_transaction(&mut self, tx: &Transaction) -> crate::error::BlockchainResult<()> {
         // Handle privacy transactions differently

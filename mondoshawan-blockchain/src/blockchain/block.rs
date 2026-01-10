@@ -101,6 +101,7 @@ impl Transaction {
             execute_at_timestamp: None, // Immediate execution
             sponsor: None, // No sponsor (sender pays fee)
             multisig_signatures: None, // No multi-sig initially
+            privacy_data: None, // No privacy data initially
         };
         tx.hash = tx.calculate_hash();
         tx
@@ -123,6 +124,7 @@ impl Transaction {
             execute_at_timestamp: None, // Immediate execution
             sponsor: None, // No sponsor (sender pays fee)
             multisig_signatures: None, // No multi-sig initially
+            privacy_data: None, // No privacy data initially
         };
         tx.hash = tx.calculate_hash();
         tx

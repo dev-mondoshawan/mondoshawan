@@ -3,8 +3,24 @@
 //! Defines circuits for private transfers and other privacy operations.
 
 use ark_bn254::Fr;
-use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystem, SynthesisError};
+use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystem, SynthesisError, Variable};
 use serde::{Deserialize, Serialize};
+
+// Helper macro for linear combinations
+macro_rules! lc {
+    () => {
+        ark_relations::r1cs::LinearCombination::<Fr>::zero()
+    };
+    ($($x:expr),*) => {
+        {
+            let mut lc = ark_relations::r1cs::LinearCombination::<Fr>::zero();
+            $(
+                lc = lc + $x;
+            )*
+            lc
+        }
+    };
+}
 
 /// Privacy circuit trait
 pub trait PrivacyCircuit: ConstraintSynthesizer<Fr> {
@@ -35,7 +51,7 @@ pub struct PrivateTransferCircuit {
 
 impl ConstraintSynthesizer<Fr> for PrivateTransferCircuit {
     fn generate_constraints(
-        self,
+        &self,
         cs: &mut ConstraintSystem<Fr>,
     ) -> Result<(), SynthesisError> {
         // Allocate witness variables
@@ -64,11 +80,10 @@ impl ConstraintSynthesizer<Fr> for PrivateTransferCircuit {
         // Constraint 2: new_balance = old_balance - amount
         // This means: old_balance = amount + new_balance
         // We enforce: old_balance * 1 = (amount + new_balance) * 1
-        let one = cs.one();
         cs.enforce_constraint(
-            old_balance_var.into(),
-            one.into(),
-            (amount_var + new_balance_var).into(),
+            lc!() + (Variable::One, Fr::one()) + old_balance_var,
+            lc!() + (Variable::One, Fr::one()),
+            lc!() + amount_var + new_balance_var,
         )?;
 
         // Constraint 3: Nullifier is valid (simplified)
@@ -99,26 +114,6 @@ impl PrivacyCircuit for PrivateTransferCircuit {
     }
 }
 
-// Helper macros for constraint system
-macro_rules! lc {
-    () => {
-        ark_relations::r1cs::LinearCombination::<Fr>::zero()
-    };
-    ($($x:expr),*) => {
-        {
-            let mut lc = ark_relations::r1cs::LinearCombination::<Fr>::zero();
-            $(
-                lc = lc + $x;
-            )*
-            lc
-        }
-    };
-}
-
-// Note: lc! macro would be defined here in full implementation
-
-// Helper for constraint system
-type CS = ConstraintSystem<Fr>;
 
 #[cfg(test)]
 mod tests {

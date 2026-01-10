@@ -43,6 +43,7 @@ ark-ec = "0.4"
 ark-ff = "0.4"
 ark-std = "0.4"
 ark-poly = "0.4"
+ark-serialize = "0.4"
 
 [[bin]]
 name = "node"

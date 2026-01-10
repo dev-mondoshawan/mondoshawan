@@ -24,22 +24,21 @@ impl Commitment {
 
     /// Serialize commitment to bytes
     pub fn to_bytes(&self) -> Vec<u8> {
-        // Serialize G1 point (64 bytes compressed)
-        let mut bytes = Vec::with_capacity(64);
-        // In production, use proper point serialization
-        bytes.extend_from_slice(&[0u8; 64]);
-        bytes
+        // Serialize G1 point using ark_serialize
+        let mut bytes = Vec::new();
+        if self.point.serialize(&mut bytes).is_ok() {
+            bytes
+        } else {
+            Vec::new()
+        }
     }
 
     /// Deserialize commitment from bytes
     pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
-        if bytes.len() != 64 {
-            return None;
-        }
-        // In production, use proper point deserialization
-        Some(Self {
-            point: G1Projective::zero(),
-        })
+        let mut cursor = std::io::Cursor::new(bytes);
+        G1Projective::deserialize(&mut cursor)
+            .ok()
+            .map(|point| Self { point })
     }
 }
 

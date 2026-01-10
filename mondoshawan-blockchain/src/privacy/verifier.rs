@@ -5,6 +5,7 @@
 use ark_bn254::{Bn254, Fr};
 use ark_groth16::{Groth16, Proof, VerifyingKey};
 use crate::privacy::circuit::PrivacyCircuit;
+use std::io::Cursor;
 
 /// Privacy Verifier
 pub struct PrivacyVerifier {
@@ -31,7 +32,18 @@ impl PrivacyVerifier {
 
     /// Deserialize proof from bytes
     pub fn deserialize_proof(bytes: &[u8]) -> Result<Proof<Bn254>, String> {
-        Proof::<Bn254>::deserialize(bytes)
+        let mut cursor = Cursor::new(bytes);
+        Proof::<Bn254>::deserialize(&mut cursor)
             .map_err(|e| format!("Proof deserialization failed: {:?}", e))
+    }
+
+    /// Verify proof with public inputs
+    pub fn verify_with_inputs(
+        &self,
+        proof: &Proof<Bn254>,
+        public_inputs: &[Fr],
+    ) -> bool {
+        Groth16::<Bn254>::verify(&self.verifying_key, public_inputs, proof)
+            .unwrap_or(false)
     }
 }

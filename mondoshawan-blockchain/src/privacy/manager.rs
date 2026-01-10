@@ -2,7 +2,7 @@
 //!
 //! Manages privacy operations, nullifiers, and commitments.
 
-use crate::privacy::{Commitment, Nullifier, NullifierSet, PrivacyTransaction};
+use crate::privacy::{Commitment, Nullifier, NullifierSet, PrivacyTransaction, PrivacyVerifier};
 use crate::types::Address;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -16,6 +16,8 @@ pub struct PrivacyManager {
     commitments: Arc<RwLock<HashMap<Commitment, Address>>>,
     /// Privacy enabled flag
     enabled: bool,
+    /// Privacy verifier (for proof verification)
+    verifier: Option<Arc<PrivacyVerifier>>,
 }
 
 impl PrivacyManager {
@@ -25,7 +27,23 @@ impl PrivacyManager {
             nullifier_set: Arc::new(RwLock::new(NullifierSet::default())),
             commitments: Arc::new(RwLock::new(HashMap::new())),
             enabled,
+            verifier: None,
         }
+    }
+
+    /// Create privacy manager with verifier
+    pub fn with_verifier(enabled: bool, verifier: PrivacyVerifier) -> Self {
+        Self {
+            nullifier_set: Arc::new(RwLock::new(NullifierSet::default())),
+            commitments: Arc::new(RwLock::new(HashMap::new())),
+            enabled,
+            verifier: Some(Arc::new(verifier)),
+        }
+    }
+
+    /// Set verifier
+    pub fn set_verifier(&mut self, verifier: PrivacyVerifier) {
+        self.verifier = Some(Arc::new(verifier));
     }
 
     /// Check if privacy is enabled
@@ -54,11 +72,32 @@ impl PrivacyManager {
             return Err("Privacy layer is disabled".to_string());
         }
 
-        // Verify proof (would use verifier here)
-        // For now, just check nullifier
+        // Verify proof if verifier is available
+        if let Some(ref verifier) = self.verifier {
+            // Deserialize proof
+            let proof = PrivacyVerifier::deserialize_proof(&tx.proof)
+                .map_err(|e| format!("Failed to deserialize proof: {}", e))?;
+
+            // Parse public inputs (nullifier, commitment)
+            use ark_bn254::Fr;
+            use ark_ff::PrimeField;
+            let mut public_inputs = Vec::new();
+            for input_bytes in &tx.public_inputs {
+                if input_bytes.len() >= 32 {
+                    let mut bytes = [0u8; 32];
+                    bytes.copy_from_slice(&input_bytes[..32]);
+                    let fr = Fr::from_le_bytes_mod_order(&bytes);
+                    public_inputs.push(fr);
+                }
+            }
+
+            // Verify proof
+            if !verifier.verify_with_inputs(&proof, &public_inputs) {
+                return Err("Privacy proof verification failed".to_string());
+            }
+        }
         
-        // Extract nullifier from public inputs (simplified)
-        // In production, would properly parse public inputs
+        // Extract nullifier from public inputs
         // Format: public_inputs[0] = nullifier
         if let Some(nullifier_bytes) = tx.public_inputs.get(0) {
             if nullifier_bytes.len() == 32 {

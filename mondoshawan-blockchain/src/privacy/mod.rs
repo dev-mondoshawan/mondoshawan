@@ -5,6 +5,7 @@
 
 pub mod circuit;
 pub mod commitment;
+pub mod keys;
 pub mod manager;
 pub mod merkle;
 pub mod nullifier;
@@ -14,6 +15,7 @@ pub mod verifier;
 
 pub use circuit::{PrivateTransferCircuit, PrivacyCircuit};
 pub use commitment::{Commitment, PedersenCommitment};
+pub use keys::{generate_keys, load_keys_from_bytes, serialize_keys};
 pub use manager::PrivacyManager;
 pub use nullifier::{Nullifier, NullifierSet};
 pub use prover::PrivacyProver;
@@ -83,3 +85,6 @@ impl PrivacyNote {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod integration_tests;

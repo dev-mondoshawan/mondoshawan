@@ -6,7 +6,7 @@ use ark_bn254::{Bn254, Fr};
 use ark_groth16::{Groth16, Proof, ProvingKey};
 use ark_relations::r1cs::ConstraintSynthesizer;
 use ark_std::rand::RngCore;
-use crate::privacy::circuit::PrivacyCircuit;
+use crate::privacy::circuit::{PrivacyCircuit, PrivateTransferCircuit};
 
 /// Privacy Prover
 pub struct PrivacyProver {
@@ -36,5 +36,26 @@ impl PrivacyProver {
         proof.serialize(&mut bytes)
             .map_err(|e| format!("Proof serialization failed: {:?}", e))?;
         Ok(bytes)
+    }
+
+    /// Generate proof for private transfer
+    pub fn prove_private_transfer(
+        &self,
+        old_balance: u128,
+        amount: u128,
+        new_balance: u128,
+        nullifier: Fr,
+        commitment: Fr,
+        rng: &mut dyn RngCore,
+    ) -> Result<Proof<Bn254>, String> {
+        let circuit = PrivateTransferCircuit {
+            old_balance: Some(old_balance),
+            amount: Some(amount),
+            new_balance: Some(new_balance),
+            nullifier,
+            commitment: Some(commitment),
+        };
+
+        self.prove(circuit, rng)
     }
 }
