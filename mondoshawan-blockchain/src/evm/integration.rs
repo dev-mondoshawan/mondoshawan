@@ -23,7 +23,7 @@ impl ParallelTransactionProcessor {
     /// 
     /// This is a helper that can be used before processing to determine
     /// if parallel execution would provide benefits.
-    pub fn estimate_improvement(&self, transactions: &[Transaction]) -> f64 {
+    pub fn estimate_parallel_improvement(&self, transactions: &[Transaction]) -> f64 {
         // This would need async runtime, so for now return estimate
         if let Ok(executor) = self.executor.try_read() {
             executor.estimate_improvement(transactions)
