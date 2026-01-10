@@ -109,9 +109,13 @@ PYRAX_*.md
 *_POSITIONING*.md
 *_COMPARISON*.md
 RENAME_*.md
+BRANDING*.md
+TWITTER*.md
+fairness.rs
 
-# Development scripts
+# Development scripts (except essential deployment scripts)
 *.ps1
+!grafana/start-grafana.ps1  # Keep Grafana deployment script
 *.sh
 *.cmd
 *.bat
