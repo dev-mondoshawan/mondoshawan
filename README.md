@@ -228,15 +228,16 @@ See [LICENSE](LICENSE) file for details.
 
 **Copyright (c) 2026 Mondoshawan Protocol**
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+## 🛡️ Security & Legal
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+- **[SECURITY.md](SECURITY.md)** - Security policy and vulnerability reporting
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Contributor guidelines
+- **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)** - Community standards
+- **[TRADEMARK_POLICY.md](TRADEMARK_POLICY.md)** - Trademark usage guidelines
+
+## 🔒 Security
+
+**Found a security vulnerability?** Please report it to security@mondoshawan.network (see [SECURITY.md](SECURITY.md)) instead of opening a public issue.
 
 ## 🌐 Community & Links
 
