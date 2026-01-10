@@ -124,6 +124,9 @@ msvcrt.lib-generator/
 # Website files (not for public repo)
 mondoshawan-website/
 mondoshawan-website-legendary/
+mondoshawan-website-FINAL-v2/
+*WEBSITE*.md
+WEBSITE_*.md
 
 # Desktop application (separate project)
 # mondoshawan-desktop/  # Now included in public repo
