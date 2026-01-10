@@ -49,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupFairnessControls();
     setupForensicsControls();
     setupAccountAbstraction();
+    setupOracles();
 });
 
 // Load dashboard statistics
