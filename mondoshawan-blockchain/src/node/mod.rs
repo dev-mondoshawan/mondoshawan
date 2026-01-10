@@ -455,7 +455,7 @@ async fn start_rpc_server(addr: String, rpc_server: Arc<crate::rpc::RpcServer>, 
                                 params: Some(serde_json::Value::Array(Vec::new())),
                                 id: Some(serde_json::Value::Null),
                             };
-                            let test_response = rpc_server_clone.handle_request(test_request, None).await;
+                            let test_response = rpc_server_clone.handle_request(test_request, None, None).await;
                             
                             // If we get a valid response, node is ready
                             let ready = test_response.error.is_none();
@@ -526,7 +526,9 @@ async fn start_rpc_server(addr: String, rpc_server: Arc<crate::rpc::RpcServer>, 
                         
                         // Parse JSON-RPC request
                         if let Ok(request) = serde_json::from_str::<crate::rpc::JsonRpcRequest>(json_body) {
-                            let response = rpc_server_clone.handle_request(request, api_key.as_deref()).await;
+                            // Extract client IP from stream peer address
+                            let client_ip = stream.peer_addr().ok().map(|addr| addr.ip());
+                            let response = rpc_server_clone.handle_request(request, api_key.as_deref(), client_ip).await;
                             let response_json = serde_json::to_string(&response).unwrap_or_else(|_| "{}".to_string());
                             
                             let http_response = format!(
@@ -540,8 +542,10 @@ async fn start_rpc_server(addr: String, rpc_server: Arc<crate::rpc::RpcServer>, 
                             // Try batch request
                             if let Ok(requests) = serde_json::from_str::<Vec<crate::rpc::JsonRpcRequest>>(json_body) {
                                 let api_key_ref = api_key.as_deref();
+                                // Extract client IP from stream peer address
+                                let client_ip = stream.peer_addr().ok().map(|addr| addr.ip());
                                 let responses: Vec<_> = futures::future::join_all(
-                                    requests.into_iter().map(|req| rpc_server_clone.handle_request(req, api_key_ref))
+                                    requests.into_iter().map(move |req| rpc_server_clone.handle_request(req, api_key_ref, client_ip))
                                 ).await;
                                 
                                 let response_json = serde_json::to_string(&responses).unwrap_or_else(|_| "[]".to_string());

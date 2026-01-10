@@ -86,6 +86,8 @@ pub struct RpcServer {
     stop_loss_manager: Option<Arc<tokio::sync::RwLock<crate::stop_loss::StopLossManager>>>,
     /// Privacy manager
     privacy_manager: Option<Arc<tokio::sync::RwLock<crate::privacy::PrivacyManager>>>,
+    /// Security hardening (DoS protection, IP filtering, rate limiting)
+    security_hardening: Option<Arc<tokio::sync::RwLock<crate::security::SecurityHardening>>>,
     /// API key for authentication (if None, authentication is disabled)
     api_key: Option<String>,
     /// Methods that don't require authentication (public methods)
@@ -128,6 +130,7 @@ impl RpcServer {
             recurring_manager: None,
             stop_loss_manager: None,
             privacy_manager: None,
+            security_hardening: None,
             api_key: None,
             public_methods,
         }
@@ -182,6 +185,7 @@ impl RpcServer {
             recurring_manager: None,
             stop_loss_manager: None,
             privacy_manager: None,
+            security_hardening: None,
             api_key: None,
             public_methods,
         }
@@ -237,6 +241,7 @@ impl RpcServer {
             recurring_manager: None,
             stop_loss_manager: None,
             privacy_manager: None,
+            security_hardening: None,
             api_key: None,
             public_methods,
         }
@@ -285,6 +290,7 @@ impl RpcServer {
             recurring_manager: None,
             stop_loss_manager: None,
             privacy_manager: None,
+            security_hardening: None,
             api_key: None,
             public_methods,
         }
@@ -368,15 +374,112 @@ impl RpcServer {
         self.metrics = Some(metrics);
     }
 
+    /// Set security hardening
+    pub fn set_security_hardening(&mut self, hardening: Arc<tokio::sync::RwLock<crate::security::SecurityHardening>>) {
+        self.security_hardening = Some(hardening);
+    }
+
+    /// Create RPC server with security hardening
+    pub fn with_security_hardening(
+        blockchain: Arc<RwLock<Blockchain>>,
+        config: crate::security::SecurityConfig,
+    ) -> Self {
+        let mut server = Self::new(blockchain);
+        server.security_hardening = Some(Arc::new(tokio::sync::RwLock::new(
+            crate::security::SecurityHardening::new(config)
+        )));
+        server
+    }
+
     /// Handle JSON-RPC request
     /// 
     /// # Arguments
     /// * `request` - The JSON-RPC request
     /// * `api_key_header` - Optional API key from HTTP header (X-API-Key)
-    pub async fn handle_request(&self, request: JsonRpcRequest, api_key_header: Option<&str>) -> JsonRpcResponse {
+    /// * `client_ip` - Optional client IP address for security hardening
+    pub async fn handle_request(&self, request: JsonRpcRequest, api_key_header: Option<&str>, client_ip: Option<std::net::IpAddr>) -> JsonRpcResponse {
+        // Security hardening: Check IP if provided
+        if let Some(ip) = client_ip {
+            if let Some(ref hardening) = self.security_hardening {
+                let hardening = hardening.read().await;
+                match hardening.check_ip(ip).await {
+                    Err(crate::security::SecurityError::Blacklisted) => {
+                        return JsonRpcResponse {
+                            jsonrpc: "2.0".to_string(),
+                            result: None,
+                            error: Some(JsonRpcError {
+                                code: -32003,
+                                message: "Access denied: IP is blacklisted".to_string(),
+                                data: None,
+                            }),
+                            id: request.id,
+                        };
+                    }
+                    Err(crate::security::SecurityError::Banned) => {
+                        return JsonRpcResponse {
+                            jsonrpc: "2.0".to_string(),
+                            result: None,
+                            error: Some(JsonRpcError {
+                                code: -32004,
+                                message: "Access denied: IP is temporarily banned".to_string(),
+                                data: None,
+                            }),
+                            id: request.id,
+                        };
+                    }
+                    Err(crate::security::SecurityError::RateLimitExceeded) => {
+                        hardening.record_failed_request(ip).await;
+                        return JsonRpcResponse {
+                            jsonrpc: "2.0".to_string(),
+                            result: None,
+                            error: Some(JsonRpcError {
+                                code: -32005,
+                                message: "Rate limit exceeded".to_string(),
+                                data: None,
+                            }),
+                            id: request.id,
+                        };
+                    }
+                    Ok(()) => {}
+                    _ => {}
+                }
+            }
+        }
+
+        // Check request size (DoS protection)
+        // Estimate request size from method and params
+        let request_size = request.method.len() + 
+            request.params.as_ref()
+                .map(|p| serde_json::to_string(p).map(|s| s.len()).unwrap_or(0))
+                .unwrap_or(0);
+        if let Some(ref hardening) = self.security_hardening {
+            let hardening = hardening.read().await;
+            if let Err(_) = hardening.check_request_size(request_size) {
+                if let Some(ip) = client_ip {
+                    hardening.record_invalid_request(ip).await;
+                }
+                return JsonRpcResponse {
+                    jsonrpc: "2.0".to_string(),
+                    result: None,
+                    error: Some(JsonRpcError {
+                        code: -32600,
+                        message: "Request too large".to_string(),
+                        data: None,
+                    }),
+                    id: request.id,
+                };
+            }
+        }
+
         // Check authentication if required
         if self.requires_auth(&request.method) {
             if !self.verify_api_key(&request, api_key_header) {
+                if let Some(ip) = client_ip {
+                    if let Some(ref hardening) = self.security_hardening {
+                        let hardening = hardening.read().await;
+                        hardening.record_failed_request(ip).await;
+                    }
+                }
                 return JsonRpcResponse {
                     jsonrpc: "2.0".to_string(),
                     result: None,
@@ -392,7 +495,7 @@ impl RpcServer {
             }
         }
         
-        // Check rate limit
+        // Check rate limit (legacy global rate limiter - kept for backward compatibility)
         if let Some(ref limiter) = self.rate_limiter {
             if !limiter.try_acquire().await {
                 return JsonRpcResponse {
