@@ -703,7 +703,7 @@ The Mondoshawan Protocol implements a **90% fair launch model**, the fairest in 
 | **Bitcoin** | 0% | 100% | 0% | 0% |
 | **Ethereum** | ~12% | 88% | ~12% | 0% |
 | **Typical L1** | 20-65% | 35-80% | 10-20% | 15-30% |
-| **Mondoshawan** | **3%** | **97%** | **0%** | **3%** |
+| **Mondoshawan** | **Up to 10%** | **90%** | **0%** | **Up to 10%** |
 
 **Mondoshawan is the fairest launch in the industry** ✅
 
