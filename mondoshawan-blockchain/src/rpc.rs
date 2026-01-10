@@ -1,6 +1,9 @@
 //! JSON-RPC 2.0 API Server
 //! 
 //! Provides Ethereum-compatible JSON-RPC methods for external tool integration
+//!
+//! Copyright (c) 2026 Mondoshawan Protocol
+//! Licensed under the MIT License (see LICENSE file)
 
 pub mod rate_limit;
 

@@ -1,4 +1,7 @@
 //! Blockchain core implementation
+//!
+//! Copyright (c) 2026 Mondoshawan Protocol
+//! Licensed under the MIT License (see LICENSE file)
 
 pub mod block;
 #[cfg(test)]

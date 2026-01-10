@@ -6,6 +6,9 @@
 //! - Real-time console dashboard
 //! - HTTP API server (port 8080)
 //! - Web dashboard support
+//!
+//! Copyright (c) 2026 Mondoshawan Protocol
+//! Licensed under the MIT License (see LICENSE file)
 
 use mondoshawan_blockchain::node::Node;
 use mondoshawan_blockchain::node::NodeConfig;

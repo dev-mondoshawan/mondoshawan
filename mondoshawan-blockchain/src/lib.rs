@@ -2,6 +2,9 @@
 //! 
 //! High-performance sharded blockchain with TriStream mining architecture
 //! and GhostDAG consensus.
+//!
+//! Copyright (c) 2026 Mondoshawan Protocol
+//! Licensed under the MIT License (see LICENSE file)
 
 pub mod account_abstraction;
 pub mod blockchain;
