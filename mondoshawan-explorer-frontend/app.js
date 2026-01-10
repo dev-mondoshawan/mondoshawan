@@ -432,6 +432,21 @@ async function displayTransaction(tx) {
         `;
     }
     
+    // Check for privacy transaction
+    let privacyHtml = '';
+    if (tx.privacy_data || tx.isPrivate) {
+        privacyHtml = `
+            <div class="privacy-section" style="margin-top: 1rem; padding: 1rem; background: #1e293b; border-radius: 8px; border-left: 4px solid #ec4899;">
+                <h4>🔒 Privacy Transaction</h4>
+                <p style="color: #ec4899; font-size: 0.9rem;">✨ This transaction uses zk-SNARKs for privacy</p>
+                <p><strong>Amount:</strong> Hidden (private)</p>
+                <p><strong>Sender:</strong> Hidden (private)</p>
+                <p><strong>Receiver:</strong> Hidden (private)</p>
+                ${tx.privacy_data && tx.privacy_data.nullifier ? `<p><strong>Nullifier:</strong> <code>${tx.privacy_data.nullifier.substring(0, 20)}...</code></p>` : ''}
+            </div>
+        `;
+    }
+    
     addressInfo.innerHTML = `
         <h3>Transaction Details</h3>
         <p><strong>Hash:</strong> <code>${txHash}</code></p>
@@ -443,6 +458,7 @@ async function displayTransaction(tx) {
         <p><strong>Block:</strong> ${tx.block_number || 'Pending'}</p>
         ${timeLockHtml}
         ${sponsorHtml}
+        ${privacyHtml}
         ${shardHtml}
         ${riskHtml}
     `;
@@ -565,6 +581,28 @@ async function displayAddress(address) {
         console.error('Error checking wallet:', error);
     }
     
+    // Load recurring transactions for this address
+    let recurringTxs = null;
+    try {
+        const recurring = await rpcCall('mds_getRecurringTransactions', { address: addressStr }).catch(() => null);
+        if (recurring && recurring.recurring_transactions && recurring.recurring_transactions.length > 0) {
+            recurringTxs = recurring.recurring_transactions;
+        }
+    } catch (error) {
+        console.error('Error loading recurring transactions:', error);
+    }
+    
+    // Load stop-loss orders for this address
+    let stopLossOrders = null;
+    try {
+        const stopLoss = await rpcCall('mds_getStopLossOrders', { address: addressStr }).catch(() => null);
+        if (stopLoss && stopLoss.stop_loss_orders && stopLoss.stop_loss_orders.length > 0) {
+            stopLossOrders = stopLoss.stop_loss_orders;
+        }
+    } catch (error) {
+        console.error('Error loading stop-loss orders:', error);
+    }
+    
     let walletHtml = '';
     if (walletInfo) {
         const walletType = walletInfo.walletType || 'basic';
@@ -585,6 +623,44 @@ async function displayAddress(address) {
         `;
     }
     
+    let recurringHtml = '';
+    if (recurringTxs && recurringTxs.length > 0) {
+        recurringHtml = `
+            <div class="recurring-section" style="margin-top: 1rem; padding: 1rem; background: #1e293b; border-radius: 8px; border-left: 4px solid #10b981;">
+                <h4>🔄 Recurring Transactions (${recurringTxs.length})</h4>
+                ${recurringTxs.slice(0, 5).map(tx => `
+                    <div style="margin-top: 0.5rem; padding: 0.75rem; background: rgba(16, 185, 129, 0.1); border-radius: 6px;">
+                        <p><strong>ID:</strong> <code>${tx.recurring_tx_id?.substring(0, 20)}...</code></p>
+                        <p><strong>To:</strong> <code>${tx.to?.substring(0, 20)}...</code></p>
+                        <p><strong>Amount:</strong> ${tx.value} MSHW</p>
+                        <p><strong>Status:</strong> ${tx.status}</p>
+                        <p><strong>Executions:</strong> ${tx.execution_count || 0}</p>
+                    </div>
+                `).join('')}
+                ${recurringTxs.length > 5 ? `<p style="margin-top: 0.5rem; color: #94a3b8; font-size: 0.9rem;">... and ${recurringTxs.length - 5} more</p>` : ''}
+            </div>
+        `;
+    }
+    
+    let stopLossHtml = '';
+    if (stopLossOrders && stopLossOrders.length > 0) {
+        stopLossHtml = `
+            <div class="stop-loss-section" style="margin-top: 1rem; padding: 1rem; background: #1e293b; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                <h4>⚠️ Stop-Loss Orders (${stopLossOrders.length})</h4>
+                ${stopLossOrders.slice(0, 5).map(order => `
+                    <div style="margin-top: 0.5rem; padding: 0.75rem; background: rgba(245, 158, 11, 0.1); border-radius: 6px;">
+                        <p><strong>Token:</strong> ${order.token_symbol || 'N/A'}</p>
+                        <p><strong>Amount:</strong> ${order.amount}</p>
+                        <p><strong>Trigger Price:</strong> ${order.trigger_price}</p>
+                        <p><strong>Type:</strong> ${order.order_type || 'sell'}</p>
+                        <p><strong>Status:</strong> ${order.status || 'active'}</p>
+                    </div>
+                `).join('')}
+                ${stopLossOrders.length > 5 ? `<p style="margin-top: 0.5rem; color: #94a3b8; font-size: 0.9rem;">... and ${stopLossOrders.length - 5} more</p>` : ''}
+            </div>
+        `;
+    }
+    
     addressInfo.innerHTML = `
         <h3>Address Details</h3>
         <p><strong>Address:</strong> <code>${addressStr}</code></p>
@@ -593,6 +669,8 @@ async function displayAddress(address) {
         <p><strong>First Seen:</strong> ${address.first_seen ? new Date(address.first_seen * 1000).toLocaleString() : 'N/A'}</p>
         <p><strong>Last Seen:</strong> ${address.last_seen ? new Date(address.last_seen * 1000).toLocaleString() : 'N/A'}</p>
         ${walletHtml}
+        ${recurringHtml}
+        ${stopLossHtml}
         ${reputationHtml}
         ${shardHtml}
         ${riskHtml}

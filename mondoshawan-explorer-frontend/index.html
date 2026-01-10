@@ -19,6 +19,7 @@
                 <li><a href="#fairness">⚖️ Fairness & MEV</a></li>
                 <li><a href="#forensics">🔍 Forensics</a></li>
                 <li><a href="#account-abstraction">🔐 Account Abstraction</a></li>
+                <li><a href="#oracles">🔮 Oracles</a></li>
                 <li><a href="#explain">💡 Explain</a></li>
                 <li><a href="#security">🔒 Security</a></li>
             </ul>
@@ -228,6 +229,29 @@
                     <button id="view-batch-btn" class="view-btn">View Batch Status</button>
                 </div>
                 <div id="batch-status" class="batch-status"></div>
+            </div>
+        </section>
+
+        <!-- Oracles Section -->
+        <section id="oracles" class="section">
+            <h2>🔮 Oracle Network</h2>
+            <div id="oracle-feeds" class="oracle-section">
+                <h3>Price Feeds</h3>
+                <button id="load-feeds-btn" class="load-btn" style="margin-bottom: 1rem;">Load Price Feeds</button>
+                <div id="feeds-display" class="feeds-display">
+                    <p>Click "Load Price Feeds" to view available price feeds</p>
+                </div>
+            </div>
+            <div id="oracle-randomness" class="oracle-section" style="margin-top: 2rem;">
+                <h3>Verifiable Randomness (VRF)</h3>
+                <div class="randomness-controls">
+                    <input type="text" id="randomness-request-input" placeholder="Request ID (optional)" class="address-input">
+                    <button id="request-randomness-btn" class="request-btn">Request Randomness</button>
+                    <button id="get-randomness-btn" class="get-btn">Get Randomness</button>
+                </div>
+                <div id="randomness-display" class="randomness-display">
+                    <p>Request or retrieve verifiable randomness</p>
+                </div>
             </div>
         </section>
 

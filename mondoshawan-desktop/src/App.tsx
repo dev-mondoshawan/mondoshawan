@@ -47,7 +47,7 @@ type ShardStats = {
 };
 
 function App() {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "wallet" | "send" | "history" | "explorer" | "metrics" | "account-abstraction">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "wallet" | "send" | "history" | "explorer" | "metrics" | "account-abstraction" | "privacy" | "oracles" | "recurring" | "stop-loss">("dashboard");
   
   // Node & mining state
   const [nodeStatus, setNodeStatus] = useState<NodeStatus | null>(null);
@@ -121,6 +121,32 @@ function App() {
   const [executeAtTimestamp, setExecuteAtTimestamp] = useState<string>("");
   const [isGasless, setIsGasless] = useState<boolean>(false);
   const [sponsorAddress, setSponsorAddress] = useState<string>("");
+  
+  // Privacy state
+  const [privacyFrom, setPrivacyFrom] = useState<string>("");
+  const [privacyTo, setPrivacyTo] = useState<string>("");
+  const [privacyAmount, setPrivacyAmount] = useState<string>("");
+  const [privacyProof, setPrivacyProof] = useState<string | null>(null);
+  const [privacyStats, setPrivacyStats] = useState<any | null>(null);
+  
+  // Oracle state
+  const [priceFeeds, setPriceFeeds] = useState<any[]>([]);
+  const [randomnessRequest, setRandomnessRequest] = useState<string>("");
+  const [randomnessResult, setRandomnessResult] = useState<string | null>(null);
+  
+  // Recurring transaction state
+  const [recurringTxs, setRecurringTxs] = useState<any[]>([]);
+  const [recurringFrom, setRecurringFrom] = useState<string>("");
+  const [recurringTo, setRecurringTo] = useState<string>("");
+  const [recurringAmount, setRecurringAmount] = useState<string>("");
+  const [recurringInterval, setRecurringInterval] = useState<string>("");
+  
+  // Stop-loss state
+  const [stopLossOrders, setStopLossOrders] = useState<any[]>([]);
+  const [stopLossToken, setStopLossToken] = useState<string>("");
+  const [stopLossAmount, setStopLossAmount] = useState<string>("");
+  const [stopLossTriggerPrice, setStopLossTriggerPrice] = useState<string>("");
+  const [stopLossOrderType, setStopLossOrderType] = useState<"sell" | "buy">("sell");
   
   // Common state
   const [loading, setLoading] = useState(false);
@@ -584,6 +610,34 @@ Nonce: ${wallet.nonce || 0}`);
     return () => clearInterval(interval);
   }, []);
 
+  // Load data when privacy tab is opened
+  useEffect(() => {
+    if (activeTab === "privacy") {
+      (async () => {
+        try {
+          const stats = await invoke<any>("mds_getPrivacyStats");
+          setPrivacyStats(stats);
+        } catch {
+          // Ignore errors
+        }
+      })();
+    }
+  }, [activeTab]);
+
+  // Load data when oracles tab is opened
+  useEffect(() => {
+    if (activeTab === "oracles") {
+      (async () => {
+        try {
+          const feeds = await invoke<any>("mds_getPriceFeeds");
+          setPriceFeeds(feeds.price_feeds || []);
+        } catch {
+          // Ignore errors
+        }
+      })();
+    }
+  }, [activeTab]);
+
   const miningOn = nodeStatus?.is_mining ?? false;
 
   return (
@@ -795,6 +849,94 @@ Nonce: ${wallet.nonce || 0}`);
           }}
         >
           Account Abstraction
+        </button>
+        <button
+          onClick={() => setActiveTab("privacy")}
+          style={{
+            padding: "0.75rem 1.5rem",
+            borderRadius: 8,
+            border: "none",
+            cursor: "pointer",
+            background: activeTab === "privacy" 
+              ? "linear-gradient(135deg, #ec4899, #db2777)" 
+              : "rgba(30, 41, 59, 0.7)",
+            color: "#f8fafc",
+            fontWeight: "600",
+            fontSize: "0.95rem",
+            boxShadow: activeTab === "privacy" 
+              ? "0 4px 12px rgba(236, 72, 153, 0.3)" 
+              : "none",
+            transition: "all 0.3s ease",
+            backdropFilter: "blur(12px)"
+          }}
+        >
+          🔒 Privacy
+        </button>
+        <button
+          onClick={() => setActiveTab("oracles")}
+          style={{
+            padding: "0.75rem 1.5rem",
+            borderRadius: 8,
+            border: "none",
+            cursor: "pointer",
+            background: activeTab === "oracles" 
+              ? "linear-gradient(135deg, #06b6d4, #0891b2)" 
+              : "rgba(30, 41, 59, 0.7)",
+            color: "#f8fafc",
+            fontWeight: "600",
+            fontSize: "0.95rem",
+            boxShadow: activeTab === "oracles" 
+              ? "0 4px 12px rgba(6, 182, 212, 0.3)" 
+              : "none",
+            transition: "all 0.3s ease",
+            backdropFilter: "blur(12px)"
+          }}
+        >
+          🔮 Oracles
+        </button>
+        <button
+          onClick={() => setActiveTab("recurring")}
+          style={{
+            padding: "0.75rem 1.5rem",
+            borderRadius: 8,
+            border: "none",
+            cursor: "pointer",
+            background: activeTab === "recurring" 
+              ? "linear-gradient(135deg, #10b981, #059669)" 
+              : "rgba(30, 41, 59, 0.7)",
+            color: "#f8fafc",
+            fontWeight: "600",
+            fontSize: "0.95rem",
+            boxShadow: activeTab === "recurring" 
+              ? "0 4px 12px rgba(16, 185, 129, 0.3)" 
+              : "none",
+            transition: "all 0.3s ease",
+            backdropFilter: "blur(12px)"
+          }}
+        >
+          🔄 Recurring
+        </button>
+        <button
+          onClick={() => setActiveTab("stop-loss")}
+          style={{
+            padding: "0.75rem 1.5rem",
+            borderRadius: 8,
+            border: "none",
+            cursor: "pointer",
+            background: activeTab === "stop-loss" 
+              ? "linear-gradient(135deg, #f59e0b, #d97706)" 
+              : "rgba(30, 41, 59, 0.7)",
+            color: "#f8fafc",
+            fontWeight: "600",
+            fontSize: "0.95rem",
+            boxShadow: activeTab === "stop-loss" 
+              ? "0 4px 12px rgba(245, 158, 11, 0.3)" 
+              : "none",
+            transition: "all 0.3s ease",
+            backdropFilter: "blur(12px)"
+          }}
+        >
+          ⚠️ Stop-Loss
         </button>
       </div>
 
@@ -3036,6 +3178,870 @@ Nonce: ${wallet.nonce || 0}`);
                 ))}
               </div>
             )}
+          </div>
+        </section>
+      )}
+
+      {/* Privacy Tab */}
+      {activeTab === "privacy" && (
+        <section
+          style={{
+            padding: "1.5rem",
+            borderRadius: 16,
+            background: "rgba(30, 41, 59, 0.7)",
+            backdropFilter: "blur(12px)",
+            border: "1px solid rgba(236, 72, 153, 0.2)",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+          }}
+        >
+          <h2 style={{ fontSize: "1.4rem", marginBottom: "1.5rem", fontWeight: "600", color: "#f8fafc" }}>
+            🔒 Privacy Transactions
+          </h2>
+          
+          {/* Privacy Stats */}
+          <div style={{ marginBottom: "2rem" }}>
+            <button
+              onClick={async () => {
+                setLoading(true);
+                try {
+                  const stats = await invoke<any>("mds_getPrivacyStats");
+                  setPrivacyStats(stats);
+                } catch (e: any) {
+                  setError(e?.toString?.() ?? "Failed to load privacy stats");
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              disabled={loading}
+              style={{
+                padding: "0.65rem 1.5rem",
+                borderRadius: 8,
+                border: "none",
+                background: loading ? "rgba(236, 72, 153, 0.5)" : "linear-gradient(135deg, #ec4899, #db2777)",
+                color: "white",
+                cursor: loading ? "not-allowed" : "pointer",
+                fontWeight: "600",
+                fontSize: "0.95rem",
+                marginBottom: "1rem",
+                opacity: loading ? 0.6 : 1,
+              }}
+            >
+              {loading ? "⏳ Loading..." : "📊 Load Privacy Stats"}
+            </button>
+            {privacyStats && (
+              <div style={{
+                padding: "1rem",
+                background: "rgba(236, 72, 153, 0.1)",
+                border: "1px solid rgba(236, 72, 153, 0.2)",
+                borderRadius: 10,
+              }}>
+                <div style={{ color: "#94a3b8", marginBottom: "0.5rem" }}>
+                  <strong>Total Private Transactions:</strong> {privacyStats.total_private_txs || 0}
+                </div>
+                <div style={{ color: "#94a3b8", marginBottom: "0.5rem" }}>
+                  <strong>Nullifiers Used:</strong> {privacyStats.nullifier_count || 0}
+                </div>
+                <div style={{ color: "#94a3b8" }}>
+                  <strong>Privacy Enabled:</strong> {privacyStats.enabled ? "✅ Yes" : "❌ No"}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Create Private Transaction */}
+          <div style={{ marginBottom: "2rem" }}>
+            <h3 style={{ fontSize: "1.2rem", marginBottom: "1rem", fontWeight: "600", color: "#f8fafc" }}>
+              Create Private Transaction
+            </h3>
+            <div style={{ display: "grid", gap: "1rem" }}>
+              <div>
+                <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontWeight: "500" }}>
+                  From Address
+                </label>
+                <input
+                  type="text"
+                  value={privacyFrom}
+                  onChange={(e) => setPrivacyFrom(e.target.value)}
+                  placeholder="0x..."
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    borderRadius: 8,
+                    border: "1px solid rgba(236, 72, 153, 0.3)",
+                    background: "rgba(2, 6, 23, 0.6)",
+                    color: "#e5e7eb",
+                    fontSize: "0.95rem",
+                    fontFamily: "'JetBrains Mono', monospace",
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontWeight: "500" }}>
+                  To Address
+                </label>
+                <input
+                  type="text"
+                  value={privacyTo}
+                  onChange={(e) => setPrivacyTo(e.target.value)}
+                  placeholder="0x..."
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    borderRadius: 8,
+                    border: "1px solid rgba(236, 72, 153, 0.3)",
+                    background: "rgba(2, 6, 23, 0.6)",
+                    color: "#e5e7eb",
+                    fontSize: "0.95rem",
+                    fontFamily: "'JetBrains Mono', monospace",
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontWeight: "500" }}>
+                  Amount (MSHW)
+                </label>
+                <input
+                  type="text"
+                  value={privacyAmount}
+                  onChange={(e) => setPrivacyAmount(e.target.value)}
+                  placeholder="100"
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    borderRadius: 8,
+                    border: "1px solid rgba(236, 72, 153, 0.3)",
+                    background: "rgba(2, 6, 23, 0.6)",
+                    color: "#e5e7eb",
+                    fontSize: "0.95rem",
+                  }}
+                />
+              </div>
+              <button
+                onClick={async () => {
+                  if (!privacyFrom || !privacyTo || !privacyAmount) {
+                    setError("Please fill in all fields");
+                    return;
+                  }
+                  setLoading(true);
+                  setError(null);
+                  try {
+                    const result = await invoke<any>("mds_createPrivateTransaction", {
+                      from: privacyFrom,
+                      to: privacyTo,
+                      amount: privacyAmount,
+                    });
+                    setPrivacyProof(result.proof || null);
+                    setError(null);
+                  } catch (e: any) {
+                    setError(e?.toString?.() ?? "Failed to create private transaction");
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={loading || !privacyFrom || !privacyTo || !privacyAmount}
+                style={{
+                  padding: "0.75rem 2rem",
+                  borderRadius: 8,
+                  border: "none",
+                  background: (!privacyFrom || !privacyTo || !privacyAmount || loading) 
+                    ? "rgba(236, 72, 153, 0.5)" 
+                    : "linear-gradient(135deg, #ec4899, #db2777)",
+                  color: "white",
+                  cursor: (!privacyFrom || !privacyTo || !privacyAmount || loading) ? "not-allowed" : "pointer",
+                  fontWeight: "600",
+                  fontSize: "1rem",
+                  boxShadow: (!privacyFrom || !privacyTo || !privacyAmount || loading) 
+                    ? "none" 
+                    : "0 4px 12px rgba(236, 72, 153, 0.4)",
+                  transition: "all 0.3s ease",
+                  opacity: (!privacyFrom || !privacyTo || !privacyAmount || loading) ? 0.6 : 1,
+                  width: "100%",
+                }}
+              >
+                {loading ? "⏳ Creating..." : "🔒 Create Private Transaction"}
+              </button>
+              {privacyProof && (
+                <div style={{
+                  padding: "1rem",
+                  background: "rgba(236, 72, 153, 0.1)",
+                  border: "1px solid rgba(236, 72, 153, 0.2)",
+                  borderRadius: 10,
+                  wordBreak: "break-all",
+                  fontSize: "0.85rem",
+                  color: "#94a3b8",
+                  fontFamily: "'JetBrains Mono', monospace",
+                }}>
+                  <strong style={{ color: "#ec4899" }}>Proof:</strong> {privacyProof}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Oracles Tab */}
+      {activeTab === "oracles" && (
+        <section
+          style={{
+            padding: "1.5rem",
+            borderRadius: 16,
+            background: "rgba(30, 41, 59, 0.7)",
+            backdropFilter: "blur(12px)",
+            border: "1px solid rgba(6, 182, 212, 0.2)",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+          }}
+        >
+          <h2 style={{ fontSize: "1.4rem", marginBottom: "1.5rem", fontWeight: "600", color: "#f8fafc" }}>
+            🔮 Oracle Network
+          </h2>
+          
+          {/* Price Feeds */}
+          <div style={{ marginBottom: "2rem" }}>
+            <h3 style={{ fontSize: "1.2rem", marginBottom: "1rem", fontWeight: "600", color: "#f8fafc" }}>
+              Price Feeds
+            </h3>
+            <button
+              onClick={async () => {
+                setLoading(true);
+                try {
+                  const feeds = await invoke<any>("mds_getPriceFeeds");
+                  setPriceFeeds(feeds.price_feeds || []);
+                } catch (e: any) {
+                  setError(e?.toString?.() ?? "Failed to load price feeds");
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              disabled={loading}
+              style={{
+                padding: "0.65rem 1.5rem",
+                borderRadius: 8,
+                border: "none",
+                background: loading ? "rgba(6, 182, 212, 0.5)" : "linear-gradient(135deg, #06b6d4, #0891b2)",
+                color: "white",
+                cursor: loading ? "not-allowed" : "pointer",
+                fontWeight: "600",
+                fontSize: "0.95rem",
+                marginBottom: "1rem",
+                opacity: loading ? 0.6 : 1,
+              }}
+            >
+              {loading ? "⏳ Loading..." : "🔄 Refresh Price Feeds"}
+            </button>
+            {priceFeeds.length > 0 && (
+              <div style={{ display: "grid", gap: "0.75rem" }}>
+                {priceFeeds.map((feed: any, idx: number) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: "1rem",
+                      background: "rgba(6, 182, 212, 0.1)",
+                      border: "1px solid rgba(6, 182, 212, 0.2)",
+                      borderRadius: 10,
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <div style={{ color: "#06b6d4", fontWeight: "600", marginBottom: "0.25rem" }}>
+                          {feed.symbol || feed.feed_id}
+                        </div>
+                        <div style={{ color: "#94a3b8", fontSize: "0.9rem" }}>
+                          Price: {feed.price || "N/A"}
+                        </div>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          setLoading(true);
+                          try {
+                            await invoke<any>("mds_getPrice", { feed_id: feed.feed_id || feed.symbol });
+                            setError(null);
+                          } catch (e: any) {
+                            setError(e?.toString?.() ?? "Failed to get price");
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                        style={{
+                          padding: "0.5rem 1rem",
+                          borderRadius: 8,
+                          border: "none",
+                          background: "linear-gradient(135deg, #06b6d4, #0891b2)",
+                          color: "white",
+                          cursor: "pointer",
+                          fontWeight: "600",
+                          fontSize: "0.85rem",
+                        }}
+                      >
+                        View
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Randomness */}
+          <div>
+            <h3 style={{ fontSize: "1.2rem", marginBottom: "1rem", fontWeight: "600", color: "#f8fafc" }}>
+              Verifiable Randomness (VRF)
+            </h3>
+            <div style={{ display: "grid", gap: "1rem" }}>
+              <div>
+                <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontWeight: "500" }}>
+                  Request ID (optional)
+                </label>
+                <input
+                  type="text"
+                  value={randomnessRequest}
+                  onChange={(e) => setRandomnessRequest(e.target.value)}
+                  placeholder="Leave empty for new request"
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    borderRadius: 8,
+                    border: "1px solid rgba(6, 182, 212, 0.3)",
+                    background: "rgba(2, 6, 23, 0.6)",
+                    color: "#e5e7eb",
+                    fontSize: "0.95rem",
+                  }}
+                />
+              </div>
+              <button
+                onClick={async () => {
+                  setLoading(true);
+                  setError(null);
+                  try {
+                    if (randomnessRequest) {
+                      const result = await invoke<any>("mds_getRandomness", { request_id: randomnessRequest });
+                      setRandomnessResult(result.randomness || null);
+                    } else {
+                      const result = await invoke<any>("mds_requestRandomness", {});
+                      setRandomnessResult(result.request_id || null);
+                    }
+                  } catch (e: any) {
+                    setError(e?.toString?.() ?? "Failed to request/get randomness");
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={loading}
+                style={{
+                  padding: "0.75rem 2rem",
+                  borderRadius: 8,
+                  border: "none",
+                  background: loading 
+                    ? "rgba(6, 182, 212, 0.5)" 
+                    : "linear-gradient(135deg, #06b6d4, #0891b2)",
+                  color: "white",
+                  cursor: loading ? "not-allowed" : "pointer",
+                  fontWeight: "600",
+                  fontSize: "1rem",
+                  boxShadow: loading ? "none" : "0 4px 12px rgba(6, 182, 212, 0.4)",
+                  transition: "all 0.3s ease",
+                  opacity: loading ? 0.6 : 1,
+                  width: "100%",
+                }}
+              >
+                {loading ? "⏳ Processing..." : randomnessRequest ? "🔍 Get Randomness" : "🎲 Request Randomness"}
+              </button>
+              {randomnessResult && (
+                <div style={{
+                  padding: "1rem",
+                  background: "rgba(6, 182, 212, 0.1)",
+                  border: "1px solid rgba(6, 182, 212, 0.2)",
+                  borderRadius: 10,
+                  wordBreak: "break-all",
+                  fontSize: "0.85rem",
+                  color: "#94a3b8",
+                  fontFamily: "'JetBrains Mono', monospace",
+                }}>
+                  <strong style={{ color: "#06b6d4" }}>Result:</strong> {randomnessResult}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Recurring Transactions Tab */}
+      {activeTab === "recurring" && (
+        <section
+          style={{
+            padding: "1.5rem",
+            borderRadius: 16,
+            background: "rgba(30, 41, 59, 0.7)",
+            backdropFilter: "blur(12px)",
+            border: "1px solid rgba(16, 185, 129, 0.2)",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+          }}
+        >
+          <h2 style={{ fontSize: "1.4rem", marginBottom: "1.5rem", fontWeight: "600", color: "#f8fafc" }}>
+            🔄 Recurring Transactions
+          </h2>
+          
+          {/* List Recurring Transactions */}
+          <div style={{ marginBottom: "2rem" }}>
+            <h3 style={{ fontSize: "1.2rem", marginBottom: "1rem", fontWeight: "600", color: "#f8fafc" }}>
+              My Recurring Transactions
+            </h3>
+            <button
+              onClick={async () => {
+                if (!recurringFrom) {
+                  setError("Please enter your address");
+                  return;
+                }
+                setLoading(true);
+                try {
+                  const txs = await invoke<any>("mds_getRecurringTransactions", { address: recurringFrom });
+                  setRecurringTxs(txs.recurring_transactions || []);
+                } catch (e: any) {
+                  setError(e?.toString?.() ?? "Failed to load recurring transactions");
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              disabled={loading || !recurringFrom}
+              style={{
+                padding: "0.65rem 1.5rem",
+                borderRadius: 8,
+                border: "none",
+                background: (loading || !recurringFrom) 
+                  ? "rgba(16, 185, 129, 0.5)" 
+                  : "linear-gradient(135deg, #10b981, #059669)",
+                color: "white",
+                cursor: (loading || !recurringFrom) ? "not-allowed" : "pointer",
+                fontWeight: "600",
+                fontSize: "0.95rem",
+                marginBottom: "1rem",
+                opacity: (loading || !recurringFrom) ? 0.6 : 1,
+              }}
+            >
+              {loading ? "⏳ Loading..." : "🔄 Load Recurring Transactions"}
+            </button>
+            {recurringTxs.length > 0 && (
+              <div style={{ display: "grid", gap: "0.75rem" }}>
+                {recurringTxs.map((tx: any, idx: number) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: "1rem",
+                      background: "rgba(16, 185, 129, 0.1)",
+                      border: "1px solid rgba(16, 185, 129, 0.2)",
+                      borderRadius: 10,
+                    }}
+                  >
+                    <div style={{ color: "#10b981", fontWeight: "600", marginBottom: "0.5rem" }}>
+                      ID: {tx.recurring_tx_id?.substring(0, 20)}...
+                    </div>
+                    <div style={{ color: "#94a3b8", fontSize: "0.9rem", marginBottom: "0.25rem" }}>
+                      From: {tx.from?.substring(0, 20)}...
+                    </div>
+                    <div style={{ color: "#94a3b8", fontSize: "0.9rem", marginBottom: "0.25rem" }}>
+                      To: {tx.to?.substring(0, 20)}...
+                    </div>
+                    <div style={{ color: "#94a3b8", fontSize: "0.9rem", marginBottom: "0.25rem" }}>
+                      Amount: {tx.value} MSHW
+                    </div>
+                    <div style={{ color: "#94a3b8", fontSize: "0.9rem", marginBottom: "0.25rem" }}>
+                      Status: {tx.status}
+                    </div>
+                    <div style={{ color: "#94a3b8", fontSize: "0.9rem" }}>
+                      Executions: {tx.execution_count || 0}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Create Recurring Transaction */}
+          <div>
+            <h3 style={{ fontSize: "1.2rem", marginBottom: "1rem", fontWeight: "600", color: "#f8fafc" }}>
+              Create Recurring Transaction
+            </h3>
+            <div style={{ display: "grid", gap: "1rem" }}>
+              <div>
+                <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontWeight: "500" }}>
+                  From Address
+                </label>
+                <input
+                  type="text"
+                  value={recurringFrom}
+                  onChange={(e) => setRecurringFrom(e.target.value)}
+                  placeholder="0x..."
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    borderRadius: 8,
+                    border: "1px solid rgba(16, 185, 129, 0.3)",
+                    background: "rgba(2, 6, 23, 0.6)",
+                    color: "#e5e7eb",
+                    fontSize: "0.95rem",
+                    fontFamily: "'JetBrains Mono', monospace",
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontWeight: "500" }}>
+                  To Address
+                </label>
+                <input
+                  type="text"
+                  value={recurringTo}
+                  onChange={(e) => setRecurringTo(e.target.value)}
+                  placeholder="0x..."
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    borderRadius: 8,
+                    border: "1px solid rgba(16, 185, 129, 0.3)",
+                    background: "rgba(2, 6, 23, 0.6)",
+                    color: "#e5e7eb",
+                    fontSize: "0.95rem",
+                    fontFamily: "'JetBrains Mono', monospace",
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontWeight: "500" }}>
+                  Amount (MSHW)
+                </label>
+                <input
+                  type="text"
+                  value={recurringAmount}
+                  onChange={(e) => setRecurringAmount(e.target.value)}
+                  placeholder="100"
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    borderRadius: 8,
+                    border: "1px solid rgba(16, 185, 129, 0.3)",
+                    background: "rgba(2, 6, 23, 0.6)",
+                    color: "#e5e7eb",
+                    fontSize: "0.95rem",
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontWeight: "500" }}>
+                  Interval (seconds)
+                </label>
+                <input
+                  type="text"
+                  value={recurringInterval}
+                  onChange={(e) => setRecurringInterval(e.target.value)}
+                  placeholder="3600 (1 hour)"
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    borderRadius: 8,
+                    border: "1px solid rgba(16, 185, 129, 0.3)",
+                    background: "rgba(2, 6, 23, 0.6)",
+                    color: "#e5e7eb",
+                    fontSize: "0.95rem",
+                  }}
+                />
+              </div>
+              <button
+                onClick={async () => {
+                  if (!recurringFrom || !recurringTo || !recurringAmount || !recurringInterval) {
+                    setError("Please fill in all fields");
+                    return;
+                  }
+                  setLoading(true);
+                  setError(null);
+                  try {
+                    await invoke<any>("mds_createRecurringTransaction", {
+                      from: recurringFrom,
+                      to: recurringTo,
+                      value: recurringAmount,
+                      interval_seconds: parseInt(recurringInterval),
+                    });
+                    setError(null);
+                    setRecurringFrom("");
+                    setRecurringTo("");
+                    setRecurringAmount("");
+                    setRecurringInterval("");
+                  } catch (e: any) {
+                    setError(e?.toString?.() ?? "Failed to create recurring transaction");
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={loading || !recurringFrom || !recurringTo || !recurringAmount || !recurringInterval}
+                style={{
+                  padding: "0.75rem 2rem",
+                  borderRadius: 8,
+                  border: "none",
+                  background: (!recurringFrom || !recurringTo || !recurringAmount || !recurringInterval || loading) 
+                    ? "rgba(16, 185, 129, 0.5)" 
+                    : "linear-gradient(135deg, #10b981, #059669)",
+                  color: "white",
+                  cursor: (!recurringFrom || !recurringTo || !recurringAmount || !recurringInterval || loading) ? "not-allowed" : "pointer",
+                  fontWeight: "600",
+                  fontSize: "1rem",
+                  boxShadow: (!recurringFrom || !recurringTo || !recurringAmount || !recurringInterval || loading) 
+                    ? "none" 
+                    : "0 4px 12px rgba(16, 185, 129, 0.4)",
+                  transition: "all 0.3s ease",
+                  opacity: (!recurringFrom || !recurringTo || !recurringAmount || !recurringInterval || loading) ? 0.6 : 1,
+                  width: "100%",
+                }}
+              >
+                {loading ? "⏳ Creating..." : "🔄 Create Recurring Transaction"}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Stop-Loss Tab */}
+      {activeTab === "stop-loss" && (
+        <section
+          style={{
+            padding: "1.5rem",
+            borderRadius: 16,
+            background: "rgba(30, 41, 59, 0.7)",
+            backdropFilter: "blur(12px)",
+            border: "1px solid rgba(245, 158, 11, 0.2)",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+          }}
+        >
+          <h2 style={{ fontSize: "1.4rem", marginBottom: "1.5rem", fontWeight: "600", color: "#f8fafc" }}>
+            ⚠️ Stop-Loss Orders
+          </h2>
+          
+          {/* List Stop-Loss Orders */}
+          <div style={{ marginBottom: "2rem" }}>
+            <h3 style={{ fontSize: "1.2rem", marginBottom: "1rem", fontWeight: "600", color: "#f8fafc" }}>
+              My Stop-Loss Orders
+            </h3>
+            <div style={{ marginBottom: "1rem" }}>
+              <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontWeight: "500" }}>
+                Your Address
+              </label>
+              <input
+                type="text"
+                value={stopLossOrders.length > 0 ? stopLossOrders[0]?.owner : ""}
+                onChange={() => {
+                  // This will be used to load orders
+                }}
+                placeholder="0x..."
+                style={{
+                  width: "100%",
+                  padding: "0.75rem",
+                  borderRadius: 8,
+                  border: "1px solid rgba(245, 158, 11, 0.3)",
+                  background: "rgba(2, 6, 23, 0.6)",
+                  color: "#e5e7eb",
+                  fontSize: "0.95rem",
+                  fontFamily: "'JetBrains Mono', monospace",
+                  marginBottom: "1rem",
+                }}
+              />
+            </div>
+            <button
+              onClick={async () => {
+                setLoading(true);
+                try {
+                  const orders = await invoke<any>("mds_getStopLossOrders", { address: stopLossOrders[0]?.owner || "" });
+                  setStopLossOrders(orders.stop_loss_orders || []);
+                } catch (e: any) {
+                  setError(e?.toString?.() ?? "Failed to load stop-loss orders");
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              disabled={loading}
+              style={{
+                padding: "0.65rem 1.5rem",
+                borderRadius: 8,
+                border: "none",
+                background: loading 
+                  ? "rgba(245, 158, 11, 0.5)" 
+                  : "linear-gradient(135deg, #f59e0b, #d97706)",
+                color: "white",
+                cursor: loading ? "not-allowed" : "pointer",
+                fontWeight: "600",
+                fontSize: "0.95rem",
+                marginBottom: "1rem",
+                opacity: loading ? 0.6 : 1,
+              }}
+            >
+              {loading ? "⏳ Loading..." : "🔄 Load Stop-Loss Orders"}
+            </button>
+            {stopLossOrders.length > 0 && (
+              <div style={{ display: "grid", gap: "0.75rem" }}>
+                {stopLossOrders.map((order: any, idx: number) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: "1rem",
+                      background: "rgba(245, 158, 11, 0.1)",
+                      border: "1px solid rgba(245, 158, 11, 0.2)",
+                      borderRadius: 10,
+                    }}
+                  >
+                    <div style={{ color: "#f59e0b", fontWeight: "600", marginBottom: "0.5rem" }}>
+                      Order ID: {order.stop_loss_id?.substring(0, 20)}...
+                    </div>
+                    <div style={{ color: "#94a3b8", fontSize: "0.9rem", marginBottom: "0.25rem" }}>
+                      Token: {order.token_symbol || "N/A"}
+                    </div>
+                    <div style={{ color: "#94a3b8", fontSize: "0.9rem", marginBottom: "0.25rem" }}>
+                      Amount: {order.amount} {order.token_symbol || ""}
+                    </div>
+                    <div style={{ color: "#94a3b8", fontSize: "0.9rem", marginBottom: "0.25rem" }}>
+                      Trigger Price: {order.trigger_price}
+                    </div>
+                    <div style={{ color: "#94a3b8", fontSize: "0.9rem", marginBottom: "0.25rem" }}>
+                      Type: {order.order_type || "sell"}
+                    </div>
+                    <div style={{ color: "#94a3b8", fontSize: "0.9rem" }}>
+                      Status: {order.status || "active"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Create Stop-Loss Order */}
+          <div>
+            <h3 style={{ fontSize: "1.2rem", marginBottom: "1rem", fontWeight: "600", color: "#f8fafc" }}>
+              Create Stop-Loss Order
+            </h3>
+            <div style={{ display: "grid", gap: "1rem" }}>
+              <div>
+                <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontWeight: "500" }}>
+                  Token Symbol
+                </label>
+                <input
+                  type="text"
+                  value={stopLossToken}
+                  onChange={(e) => setStopLossToken(e.target.value)}
+                  placeholder="MSHW"
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    borderRadius: 8,
+                    border: "1px solid rgba(245, 158, 11, 0.3)",
+                    background: "rgba(2, 6, 23, 0.6)",
+                    color: "#e5e7eb",
+                    fontSize: "0.95rem",
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontWeight: "500" }}>
+                  Amount
+                </label>
+                <input
+                  type="text"
+                  value={stopLossAmount}
+                  onChange={(e) => setStopLossAmount(e.target.value)}
+                  placeholder="100"
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    borderRadius: 8,
+                    border: "1px solid rgba(245, 158, 11, 0.3)",
+                    background: "rgba(2, 6, 23, 0.6)",
+                    color: "#e5e7eb",
+                    fontSize: "0.95rem",
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontWeight: "500" }}>
+                  Trigger Price
+                </label>
+                <input
+                  type="text"
+                  value={stopLossTriggerPrice}
+                  onChange={(e) => setStopLossTriggerPrice(e.target.value)}
+                  placeholder="50.00"
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    borderRadius: 8,
+                    border: "1px solid rgba(245, 158, 11, 0.3)",
+                    background: "rgba(2, 6, 23, 0.6)",
+                    color: "#e5e7eb",
+                    fontSize: "0.95rem",
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontWeight: "500" }}>
+                  Order Type
+                </label>
+                <select
+                  value={stopLossOrderType}
+                  onChange={(e) => setStopLossOrderType(e.target.value as "sell" | "buy")}
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    borderRadius: 8,
+                    border: "1px solid rgba(245, 158, 11, 0.3)",
+                    background: "rgba(2, 6, 23, 0.6)",
+                    color: "#e5e7eb",
+                    fontSize: "0.95rem",
+                  }}
+                >
+                  <option value="sell">Sell (when price drops)</option>
+                  <option value="buy">Buy (when price rises)</option>
+                </select>
+              </div>
+              <button
+                onClick={async () => {
+                  if (!stopLossToken || !stopLossAmount || !stopLossTriggerPrice) {
+                    setError("Please fill in all fields");
+                    return;
+                  }
+                  setLoading(true);
+                  setError(null);
+                  try {
+                    await invoke<any>("mds_createStopLoss", {
+                      token_symbol: stopLossToken,
+                      amount: stopLossAmount,
+                      trigger_price: stopLossTriggerPrice,
+                      order_type: stopLossOrderType,
+                    });
+                    setError(null);
+                    setStopLossToken("");
+                    setStopLossAmount("");
+                    setStopLossTriggerPrice("");
+                  } catch (e: any) {
+                    setError(e?.toString?.() ?? "Failed to create stop-loss order");
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={loading || !stopLossToken || !stopLossAmount || !stopLossTriggerPrice}
+                style={{
+                  padding: "0.75rem 2rem",
+                  borderRadius: 8,
+                  border: "none",
+                  background: (!stopLossToken || !stopLossAmount || !stopLossTriggerPrice || loading) 
+                    ? "rgba(245, 158, 11, 0.5)" 
+                    : "linear-gradient(135deg, #f59e0b, #d97706)",
+                  color: "white",
+                  cursor: (!stopLossToken || !stopLossAmount || !stopLossTriggerPrice || loading) ? "not-allowed" : "pointer",
+                  fontWeight: "600",
+                  fontSize: "1rem",
+                  boxShadow: (!stopLossToken || !stopLossAmount || !stopLossTriggerPrice || loading) 
+                    ? "none" 
+                    : "0 4px 12px rgba(245, 158, 11, 0.4)",
+                  transition: "all 0.3s ease",
+                  opacity: (!stopLossToken || !stopLossAmount || !stopLossTriggerPrice || loading) ? 0.6 : 1,
+                  width: "100%",
+                }}
+              >
+                {loading ? "⏳ Creating..." : "⚠️ Create Stop-Loss Order"}
+              </button>
+            </div>
           </div>
         </section>
       )}
