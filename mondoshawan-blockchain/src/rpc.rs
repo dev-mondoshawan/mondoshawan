@@ -70,6 +70,8 @@ pub struct RpcServer {
     social_recovery_manager: Option<Arc<tokio::sync::RwLock<crate::account_abstraction::SocialRecoveryManager>>>,
     /// Batch transaction manager
     batch_manager: Option<Arc<tokio::sync::RwLock<crate::account_abstraction::BatchManager>>>,
+    /// Parallel EVM executor
+    parallel_evm_executor: Option<Arc<tokio::sync::RwLock<crate::evm::parallel::ParallelEvmExecutor>>>,
     /// API key for authentication (if None, authentication is disabled)
     api_key: Option<String>,
     /// Methods that don't require authentication (public methods)
@@ -104,6 +106,7 @@ impl RpcServer {
             multisig_manager: None,
             social_recovery_manager: None,
             batch_manager: None,
+            parallel_evm_executor: None,
             api_key: None,
             public_methods,
         }
@@ -150,6 +153,7 @@ impl RpcServer {
             multisig_manager: None,
             social_recovery_manager: None,
             batch_manager: None,
+            parallel_evm_executor: None,
             api_key: None,
             public_methods,
         }
@@ -197,6 +201,7 @@ impl RpcServer {
             multisig_manager: None,
             social_recovery_manager: None,
             batch_manager: None,
+            parallel_evm_executor: None,
             api_key: None,
             public_methods,
         }
@@ -237,6 +242,7 @@ impl RpcServer {
             multisig_manager: None,
             social_recovery_manager: None,
             batch_manager: None,
+            parallel_evm_executor: None,
             api_key: None,
             public_methods,
         }
@@ -468,6 +474,10 @@ impl RpcServer {
             "mds_executeBatchTransaction" => self.mds_execute_batch_transaction(request.params).await,
             "mds_getBatchStatus" => self.mds_get_batch_status(request.params).await,
             "mds_estimateBatchGas" => self.mds_estimate_batch_gas(request.params).await,
+            // Parallel EVM Operations
+            "mds_enableParallelEVM" => self.mds_enable_parallel_evm(request.params).await,
+            "mds_getParallelEVMStats" => self.mds_get_parallel_evm_stats(request.params).await,
+            "mds_estimateParallelImprovement" => self.mds_estimate_parallel_improvement(request.params).await,
             _ => Err(JsonRpcError {
                 code: -32601,
                 message: format!("Method not found: {}", request.method),
@@ -3415,6 +3425,11 @@ impl RpcServer {
         self.batch_manager = Some(batch_manager);
     }
     
+    /// Set parallel EVM executor
+    pub fn with_parallel_evm_executor(&mut self, executor: Arc<tokio::sync::RwLock<crate::evm::parallel::ParallelEvmExecutor>>) {
+        self.parallel_evm_executor = Some(executor);
+    }
+    
     /// mds_createWallet - Create a new smart contract wallet
     async fn mds_create_wallet(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
         let wallet_registry = self.wallet_registry.as_ref()
@@ -4675,6 +4690,96 @@ impl RpcServer {
                 message: e,
                 data: None,
             }),
+        }
+    }
+    
+    /// mds_enableParallelEVM - Enable or disable parallel EVM execution
+    async fn mds_enable_parallel_evm(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Missing parameters".to_string(),
+            data: None,
+        })?;
+
+        let enabled = params.get("enabled")
+            .and_then(|v| v.as_bool())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Invalid parameter: enabled (boolean required)".to_string(),
+                data: None,
+            })?;
+
+        if let Some(ref executor) = self.parallel_evm_executor {
+            let mut exec = executor.write().await;
+            exec.set_enabled(enabled);
+            Ok(json!({
+                "enabled": enabled,
+                "message": if enabled { "Parallel EVM enabled" } else { "Parallel EVM disabled" }
+            }))
+        } else {
+            Err(JsonRpcError {
+                code: -32603,
+                message: "Parallel EVM executor not available".to_string(),
+                data: None,
+            })
+        }
+    }
+
+    /// mds_getParallelEVMStats - Get parallel EVM statistics
+    async fn mds_get_parallel_evm_stats(&self, _params: Option<Value>) -> Result<Value, JsonRpcError> {
+        if let Some(ref executor) = self.parallel_evm_executor {
+            let exec = executor.read().await;
+            Ok(json!({
+                "enabled": exec.enabled,
+                "maxParallel": exec.max_parallel,
+            }))
+        } else {
+            Ok(json!({
+                "enabled": false,
+                "maxParallel": 0,
+                "message": "Parallel EVM executor not available"
+            }))
+        }
+    }
+
+    /// mds_estimateParallelImprovement - Estimate performance improvement from parallel execution
+    async fn mds_estimate_parallel_improvement(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Missing parameters".to_string(),
+            data: None,
+        })?;
+
+        let transactions = params.get("transactions")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Invalid parameter: transactions (array required)".to_string(),
+                data: None,
+            })?;
+
+        if let Some(ref executor) = self.parallel_evm_executor {
+            let exec = executor.read().await;
+            let tx_count = transactions.len();
+            let estimated_improvement = if tx_count > 1 && exec.enabled {
+                (tx_count as f64 / (tx_count as f64 * 0.5)).min(10.0)
+            } else {
+                1.0
+            };
+
+            Ok(json!({
+                "estimatedImprovement": estimated_improvement,
+                "transactionCount": tx_count,
+                "enabled": exec.enabled,
+                "message": format!("Estimated {}x improvement for {} transactions", estimated_improvement, tx_count)
+            }))
+        } else {
+            Ok(json!({
+                "estimatedImprovement": 1.0,
+                "transactionCount": transactions.len(),
+                "enabled": false,
+                "message": "Parallel EVM executor not available"
+            }))
         }
     }
 }

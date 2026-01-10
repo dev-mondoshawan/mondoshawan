@@ -41,6 +41,8 @@ pub struct Blockchain {
     
     pub evm_enabled: bool,
     pub evm_executor: Option<crate::evm::EvmTransactionExecutor>,
+    /// Parallel EVM executor for parallel transaction execution
+    parallel_evm_executor: Option<Arc<tokio::sync::RwLock<crate::evm::parallel::ParallelEvmExecutor>>>,
     
     // Account Abstraction: Wallet registry
     wallet_registry: Option<Arc<tokio::sync::RwLock<crate::account_abstraction::WalletRegistry>>>,
@@ -59,6 +61,7 @@ impl Blockchain {
             verkle_state: None,
             evm_enabled: false,
             evm_executor: None,
+            parallel_evm_executor: None,
             wallet_registry: None,
         }
     }
@@ -75,6 +78,7 @@ impl Blockchain {
             verkle_state: Some(crate::verkle::VerkleState::new()),
             evm_enabled: false,
             evm_executor: None,
+            parallel_evm_executor: None,
             wallet_registry: None,
         }
     }
@@ -91,6 +95,7 @@ impl Blockchain {
             verkle_state: None,
             evm_enabled: false,
             evm_executor: None,
+            parallel_evm_executor: None,
             wallet_registry: None,
         };
         
@@ -112,6 +117,7 @@ impl Blockchain {
             verkle_state: Some(crate::verkle::VerkleState::new()),
             evm_enabled: false,
             evm_executor: None,
+            parallel_evm_executor: None,
             wallet_registry: None,
         };
         

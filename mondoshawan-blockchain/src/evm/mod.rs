@@ -225,3 +225,6 @@ pub struct ExecutionResult {
     pub gas_used: u64,
     pub output: Vec<u8>,
 }
+
+// Parallel EVM module
+pub mod parallel;
