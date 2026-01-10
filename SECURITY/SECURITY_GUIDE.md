@@ -241,7 +241,8 @@ Setup:
 
 ```
 Report to:
-- security@Mondoshawan.org
+- security@mondoshawan.io (for security vulnerabilities)
+- dev@mondoshawan.io (for general inquiries)
 - Include details
 - Proof of concept
 - Impact assessment

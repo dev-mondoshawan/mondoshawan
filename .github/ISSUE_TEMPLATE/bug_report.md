@@ -37,7 +37,7 @@ Add any other context about the problem here.
 
 ## Security Note
 **If this is a security vulnerability, please do NOT post it here.**
-Instead, email security@mondoshawan.network or see [SECURITY.md](../../SECURITY.md)
+Instead, email security@mondoshawan.io or see [SECURITY.md](../../SECURITY.md)
 
 ---
 

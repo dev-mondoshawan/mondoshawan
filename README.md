@@ -237,7 +237,7 @@ See [LICENSE](LICENSE) file for details.
 
 ## 🔒 Security
 
-**Found a security vulnerability?** Please report it to security@mondoshawan.network (see [SECURITY.md](SECURITY.md)) instead of opening a public issue.
+**Found a security vulnerability?** Please report it to security@mondoshawan.io (see [SECURITY.md](SECURITY.md)) instead of opening a public issue.
 
 ## 🌐 Community & Links
 

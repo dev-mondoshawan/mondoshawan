@@ -14,7 +14,7 @@
 Instead, please report them via one of the following methods:
 
 ### Email Security Team
-- **Email**: security@mondoshawan.network
+- **Email**: security@mondoshawan.io
 - **Subject**: "Security Vulnerability Report"
 - **Response Time**: We aim to respond within 48 hours
 

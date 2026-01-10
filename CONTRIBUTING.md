@@ -82,7 +82,7 @@ By contributing to Mondoshawan, you agree that:
 
 - **GitHub Issues**: For bug reports and feature requests
 - **Discussions**: For questions and general discussion
-- **Email**: contact@mondoshawan.network
+- **Email**: dev@mondoshawan.io
 
 ---
 

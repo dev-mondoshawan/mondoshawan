@@ -80,7 +80,7 @@ If you're building an open source project related to Mondoshawan:
 ### Commercial Projects:
 
 For commercial use, contact us for licensing:
-- **Email**: legal@mondoshawan.network
+- **Email**: dev@mondoshawan.io
 - **Subject**: "Trademark License Request"
 
 ## Enforcement
@@ -94,7 +94,7 @@ We will take action against:
 ## Questions?
 
 Contact us:
-- **Email**: legal@mondoshawan.network
+- **Email**: dev@mondoshawan.io
 - **Subject**: "Trademark Question"
 
 ## Updates
