@@ -35,6 +35,14 @@ pqcrypto-sphincsplus = "0.5"
 # pqcrypto-kyber = "0.5"  # Temporarily disabled due to Windows/MSVC build issues
 aes-gcm = "0.10"
 crossbeam-queue = "0.3"
+# zk-SNARKs for Privacy Layer
+ark-bn254 = "0.4"
+ark-groth16 = "0.4"
+ark-relations = "0.4"
+ark-ec = "0.4"
+ark-ff = "0.4"
+ark-std = "0.4"
+ark-poly = "0.4"
 
 [[bin]]
 name = "node"

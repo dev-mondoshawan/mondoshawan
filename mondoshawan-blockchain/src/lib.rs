@@ -26,3 +26,4 @@ pub mod types;
 pub mod verkle;
 pub mod pqc;
 pub mod light_client;
+pub mod privacy;
