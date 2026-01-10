@@ -82,9 +82,10 @@ impl ConstraintSynthesizer<Fr> for PrivateTransferCircuit {
         // Constraint 2: new_balance = old_balance - amount
         // This means: old_balance = amount + new_balance
         // We enforce: old_balance * 1 = (amount + new_balance) * 1
+        let one = Fr::from(1u64);
         cs.enforce_constraint(
-            lc!() + (Variable::One, Fr::ONE) + old_balance_var,
-            lc!() + (Variable::One, Fr::ONE),
+            lc!() + (Variable::One, one) + old_balance_var,
+            lc!() + (Variable::One, one),
             lc!() + amount_var + new_balance_var,
         )?;
 
