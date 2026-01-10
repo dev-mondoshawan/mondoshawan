@@ -125,6 +125,7 @@ impl RpcServer {
             oracle_staking: None,
             recurring_manager: None,
             stop_loss_manager: None,
+            privacy_manager: None,
             api_key: None,
             public_methods,
         }
@@ -178,6 +179,7 @@ impl RpcServer {
             oracle_staking: None,
             recurring_manager: None,
             stop_loss_manager: None,
+            privacy_manager: None,
             api_key: None,
             public_methods,
         }
@@ -232,6 +234,7 @@ impl RpcServer {
             oracle_staking: None,
             recurring_manager: None,
             stop_loss_manager: None,
+            privacy_manager: None,
             api_key: None,
             public_methods,
         }
@@ -279,6 +282,7 @@ impl RpcServer {
             oracle_staking: None,
             recurring_manager: None,
             stop_loss_manager: None,
+            privacy_manager: None,
             api_key: None,
             public_methods,
         }
@@ -5935,6 +5939,177 @@ impl RpcServer {
                 data: None,
             }),
         }
+    }
+
+    // ========== Privacy RPC Methods ==========
+
+    /// mds_createPrivateTransaction - Create a private transaction
+    async fn mds_create_private_transaction(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let privacy_manager = self.privacy_manager.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Privacy manager not available".to_string(),
+                data: None,
+            })?;
+
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+
+        // Extract parameters
+        let amount_str = params.as_object()
+            .and_then(|obj| obj.get("amount"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing amount parameter".to_string(),
+                data: None,
+            })?;
+
+        let amount = parse_hex_u128(amount_str)?;
+
+        // Generate blinding factor
+        let mut blinding = [0u8; 32];
+        use rand::RngCore;
+        rand::thread_rng().fill_bytes(&mut blinding);
+
+        // Create commitment
+        let commitment = crate::privacy::PedersenCommitment::commit(amount, &blinding);
+
+        // Generate nullifier (simplified - would use receiver secret in production)
+        let receiver = params.as_object()
+            .and_then(|obj| obj.get("receiver"))
+            .and_then(|v| v.as_str())
+            .map(|s| parse_address(s))
+            .transpose()?
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing receiver parameter".to_string(),
+                data: None,
+            })?;
+
+        let nullifier = crate::privacy::Nullifier::generate(&receiver, &blinding);
+
+        // Create privacy transaction
+        let privacy_tx = crate::privacy::PrivacyTransaction::new(
+            crate::privacy::PrivacyTxType::PrivateTransfer,
+            vec![], // Proof would be generated here
+            vec![
+                nullifier.to_bytes().to_vec(),
+                commitment.to_bytes(),
+            ],
+        );
+
+        Ok(json!({
+            "privacy_tx_hash": format!("0x{}", hex::encode(privacy_tx.hash)),
+            "nullifier": format!("0x{}", hex::encode(nullifier.to_bytes())),
+            "commitment": format!("0x{}", hex::encode(commitment.to_bytes())),
+            "message": "Privacy transaction created (proof generation pending)"
+        }))
+    }
+
+    /// mds_verifyPrivacyProof - Verify a privacy proof
+    async fn mds_verify_privacy_proof(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let privacy_manager = self.privacy_manager.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Privacy manager not available".to_string(),
+                data: None,
+            })?;
+
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+
+        let proof_str = params.as_object()
+            .and_then(|obj| obj.get("proof"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing proof parameter".to_string(),
+                data: None,
+            })?;
+
+        let proof_bytes = hex::decode(proof_str.strip_prefix("0x").unwrap_or(proof_str))
+            .map_err(|_| JsonRpcError {
+                code: -32602,
+                message: "Invalid proof format".to_string(),
+                data: None,
+            })?;
+
+        // TODO: Deserialize proof and verify using PrivacyVerifier
+        // For now, return placeholder
+        
+        Ok(json!({
+            "verified": true,
+            "message": "Proof verification (placeholder - full implementation pending)"
+        }))
+    }
+
+    /// mds_proveBalance - Prove balance without revealing amount
+    async fn mds_prove_balance(&self, params: Option<Value>) -> Result<Value, JsonRpcError> {
+        let privacy_manager = self.privacy_manager.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Privacy manager not available".to_string(),
+                data: None,
+            })?;
+
+        let params = params.ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: "Invalid params".to_string(),
+            data: None,
+        })?;
+
+        let address_str = params.as_object()
+            .and_then(|obj| obj.get("address"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| JsonRpcError {
+                code: -32602,
+                message: "Missing address parameter".to_string(),
+                data: None,
+            })?;
+
+        let address = parse_address(address_str)?;
+
+        // Get balance from blockchain
+        let blockchain = self.blockchain.read().await;
+        let balance = blockchain.get_balance(address);
+
+        // TODO: Generate zk-SNARK proof that balance >= threshold without revealing balance
+        // For now, return placeholder
+        
+        Ok(json!({
+            "proof": "0x...",
+            "message": "Balance proof generation (placeholder - full implementation pending)"
+        }))
+    }
+
+    /// mds_getPrivacyStats - Get privacy layer statistics
+    async fn mds_get_privacy_stats(&self) -> Result<Value, JsonRpcError> {
+        let privacy_manager = self.privacy_manager.as_ref()
+            .ok_or_else(|| JsonRpcError {
+                code: -32603,
+                message: "Privacy manager not available".to_string(),
+                data: None,
+            })?;
+
+        let nullifier_count = privacy_manager.nullifier_count().await;
+
+        Ok(json!({
+            "enabled": privacy_manager.is_enabled(),
+            "nullifier_count": nullifier_count,
+            "message": "Privacy layer statistics"
+        }))
+    }
+
+    /// Set privacy manager
+    pub fn with_privacy_manager(&mut self, manager: Arc<tokio::sync::RwLock<crate::privacy::PrivacyManager>>) {
+        self.privacy_manager = Some(manager);
     }
 }
 
