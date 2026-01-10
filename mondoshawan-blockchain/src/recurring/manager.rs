@@ -3,7 +3,6 @@
 //! Manages creation, cancellation, and tracking of recurring transactions.
 
 use crate::types::{Address, Hash};
-use crate::blockchain::Transaction;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use sha3::{Digest, Keccak256};

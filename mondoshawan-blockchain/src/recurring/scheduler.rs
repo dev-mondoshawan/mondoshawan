@@ -2,9 +2,8 @@
 //!
 //! Handles automatic execution of recurring transactions.
 
-use crate::recurring::manager::{RecurringTransactionManager, RecurringTransaction};
+use crate::recurring::manager::RecurringTransactionManager;
 use crate::blockchain::Transaction;
-use crate::types::Address;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 

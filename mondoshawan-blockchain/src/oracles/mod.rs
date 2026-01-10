@@ -8,6 +8,9 @@ pub mod price_feed;
 pub mod vrf;
 pub mod staking;
 
+#[cfg(test)]
+mod tests;
+
 pub use registry::{OracleRegistry, OracleNode, FeedType};
 pub use price_feed::{PriceFeedManager, PriceFeed, PriceUpdate};
 pub use vrf::{VrfManager, RandomnessRequest, RandomnessProof};

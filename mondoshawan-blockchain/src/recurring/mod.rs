@@ -5,8 +5,8 @@
 pub mod manager;
 pub mod scheduler;
 
+#[cfg(test)]
+mod tests;
+
 pub use manager::{RecurringTransactionManager, RecurringTransaction, Schedule, RecurringTxStatus};
 pub use scheduler::RecurringScheduler;
-
-use crate::types::Address;
-use serde::{Deserialize, Serialize};

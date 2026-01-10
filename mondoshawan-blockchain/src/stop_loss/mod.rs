@@ -6,8 +6,8 @@
 pub mod manager;
 pub mod monitor;
 
+#[cfg(test)]
+mod tests;
+
 pub use manager::{StopLossManager, StopLossOrder, StopLossType, StopLossStatus};
 pub use monitor::StopLossMonitor;
-
-use crate::types::Address;
-use serde::{Deserialize, Serialize};

@@ -46,6 +46,17 @@ pub struct Blockchain {
     
     // Account Abstraction: Wallet registry
     wallet_registry: Option<Arc<tokio::sync::RwLock<crate::account_abstraction::WalletRegistry>>>,
+    
+    // Oracle Network
+    oracle_registry: Option<Arc<tokio::sync::RwLock<crate::oracles::OracleRegistry>>>,
+    price_feed_manager: Option<Arc<tokio::sync::RwLock<crate::oracles::PriceFeedManager>>>,
+    vrf_manager: Option<Arc<tokio::sync::RwLock<crate::oracles::VrfManager>>>,
+    
+    // Recurring Transactions
+    recurring_manager: Option<Arc<tokio::sync::RwLock<crate::recurring::RecurringTransactionManager>>>,
+    
+    // Stop-Loss
+    stop_loss_manager: Option<Arc<tokio::sync::RwLock<crate::stop_loss::StopLossManager>>>,
 }
 
 impl Blockchain {
@@ -63,6 +74,11 @@ impl Blockchain {
             evm_executor: None,
             parallel_evm_executor: None,
             wallet_registry: None,
+            oracle_registry: None,
+            price_feed_manager: None,
+            vrf_manager: None,
+            recurring_manager: None,
+            stop_loss_manager: None,
         }
     }
     
@@ -80,6 +96,11 @@ impl Blockchain {
             evm_executor: None,
             parallel_evm_executor: None,
             wallet_registry: None,
+            oracle_registry: None,
+            price_feed_manager: None,
+            vrf_manager: None,
+            recurring_manager: None,
+            stop_loss_manager: None,
         }
     }
 
