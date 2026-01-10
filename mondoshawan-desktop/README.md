@@ -20,6 +20,16 @@
 
 ✅ **Transaction History** — View transaction history for any address with detailed information
 
+✅ **Account Abstraction** — Create and manage smart contract wallets (multi-sig, social recovery, spending limits)
+
+✅ **Parallel EVM** — Enable/disable parallel execution and view performance statistics
+
+✅ **Time-Locked Transactions** — Schedule transactions to execute at a future block or timestamp
+
+✅ **Gasless Transactions** — Send transactions with a sponsor paying the fees
+
+✅ **Reputation System** — View on-chain reputation scores and factors for any address
+
 ✅ **Native Desktop** — Built with Tauri (Rust + React) for Windows, macOS, and Linux
 
 ---
@@ -103,6 +113,28 @@ The desktop window will open automatically.
 - **Switch Accounts**: Quickly switch between tracked accounts
 - **Account Overview**: View all accounts and their balances at a glance
 - Data persisted to `accounts.json` in app directory
+
+### Account Abstraction Tab (NEW!)
+- **Create Smart Contract Wallets**: Basic, multi-sig, social recovery, spending limits, or combined
+- **Wallet Management**: View all owned wallets, check details, and manage configurations
+- **Multi-Signature Support**: Create wallets requiring n-of-m signatures for transactions
+- **Social Recovery**: Set up guardian-based recovery for lost wallets
+- **Spending Limits**: Configure daily spending limits for enhanced security
+
+### Parallel EVM (Metrics Tab)
+- **Enable/Disable**: Toggle parallel EVM execution for performance boost
+- **Statistics**: View parallel execution rate, average speedup, and batch metrics
+- **Performance Monitoring**: Track improvements from parallel execution
+
+### Time-Locked & Gasless Transactions (Send Tab)
+- **Time-Locked**: Schedule transactions to execute at a specific block number or timestamp
+- **Gasless**: Send transactions with a sponsor address paying the fees
+- **Combined Options**: Use both features together for advanced transaction scenarios
+
+### Reputation Display (Wallet Tab)
+- **Reputation Score**: View 0-100 reputation score with level (High/Medium/Low)
+- **Detailed Factors**: See successful/failed transactions, blocks mined, account age, value transacted, and more
+- **On-Chain Verification**: All reputation data comes directly from the blockchain
 
 ---
 

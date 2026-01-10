@@ -102,9 +102,10 @@ function App() {
   const [guardians, setGuardians] = useState<string[]>([]);
   const [recoveryThreshold, setRecoveryThreshold] = useState<number>(2);
   const [spendingLimit, setSpendingLimit] = useState<string>("");
-  const [pendingMultisigTxs, setPendingMultisigTxs] = useState<any[]>([]);
-  const [recoveryStatus, setRecoveryStatus] = useState<any | null>(null);
-  const [batchOperations, setBatchOperations] = useState<any[]>([]);
+  // Note: pendingMultisigTxs, recoveryStatus, batchOperations reserved for future UI expansion
+  // const [pendingMultisigTxs, setPendingMultisigTxs] = useState<any[]>([]);
+  // const [recoveryStatus, setRecoveryStatus] = useState<any | null>(null);
+  // const [batchOperations, setBatchOperations] = useState<any[]>([]);
   
   // Parallel EVM state
   const [parallelEVMEnabled, setParallelEVMEnabled] = useState<boolean>(false);
@@ -182,6 +183,16 @@ function App() {
       });
       setWalletBalanceHex(balanceHex);
       setWalletNonceHex(nonceHex);
+      
+      // Load reputation
+      try {
+        const rep = await invoke<any>("get_reputation", { address: walletAddress });
+        const factors = await invoke<any>("get_reputation_factors", { address: walletAddress });
+        if (rep) setReputation(rep);
+        if (factors) setReputationFactors(factors);
+      } catch (e) {
+        // Reputation might not be available, ignore
+      }
     } catch (e: any) {
       setError(e?.toString?.() ?? "Failed to load wallet");
     } finally {
@@ -216,8 +227,16 @@ function App() {
   }
 
   async function sendTx() {
-    if (!sendTo || !sendValue || !sendFee) {
-      setError("Fill in all fields");
+    if (!sendTo || !sendValue) {
+      setError("Fill in recipient and value");
+      return;
+    }
+    if (!isGasless && !sendFee) {
+      setError("Fill in fee (or enable gasless transaction)");
+      return;
+    }
+    if (isGasless && !sponsorAddress) {
+      setError("Enter sponsor address for gasless transaction");
       return;
     }
     setLoading(true);
@@ -226,14 +245,40 @@ function App() {
     try {
       // Convert MSHW to base units (1 MSHW = 10^18)
       const valueBigInt = BigInt(Math.floor(parseFloat(sendValue) * 1e18));
-      const feeBigInt = BigInt(Math.floor(parseFloat(sendFee) * 1e18));
+      const feeBigInt = isGasless ? BigInt(0) : BigInt(Math.floor(parseFloat(sendFee) * 1e18));
 
-      const hash = await invoke<string>("send_transaction", {
-        toAddress: sendTo,
-        valueHex: `0x${valueBigInt.toString(16)}`,
-        feeHex: `0x${feeBigInt.toString(16)}`,
-      });
-      setTxHash(hash);
+      // Handle time-locked or gasless transactions
+      if (isTimeLocked && (executeAtBlock || executeAtTimestamp)) {
+        const executeAtBlockNum = executeAtBlock ? parseInt(executeAtBlock) : undefined;
+        const executeAtTimestampNum = executeAtTimestamp ? parseInt(executeAtTimestamp) : undefined;
+        
+        const hash = await invoke<string>("create_time_locked_transaction", {
+          from: walletAddr,
+          to: sendTo,
+          value: `0x${valueBigInt.toString(16)}`,
+          fee: `0x${feeBigInt.toString(16)}`,
+          executeAtBlock: executeAtBlockNum,
+          executeAtTimestamp: executeAtTimestampNum,
+        });
+        setTxHash(hash);
+      } else if (isGasless) {
+        const hash = await invoke<string>("create_gasless_transaction", {
+          from: walletAddr,
+          to: sendTo,
+          value: `0x${valueBigInt.toString(16)}`,
+          fee: `0x${feeBigInt.toString(16)}`,
+          sponsor: sponsorAddress,
+        });
+        setTxHash(hash);
+      } else {
+        // Regular transaction
+        const hash = await invoke<string>("send_transaction", {
+          toAddress: sendTo,
+          valueHex: `0x${valueBigInt.toString(16)}`,
+          feeHex: `0x${feeBigInt.toString(16)}`,
+        });
+        setTxHash(hash);
+      }
     } catch (e: any) {
       setError(e?.toString?.() ?? "Failed to send transaction");
     } finally {
@@ -296,8 +341,93 @@ function App() {
       setDagStats(dagData);
       setShardStats(shardData);
       setMiningDashboard(miningData);
+      await loadParallelEVMStats();
     } catch (e: any) {
       setError(e?.toString?.() ?? "Failed to fetch metrics");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadParallelEVMStats() {
+    try {
+      const stats = await invoke<any>("get_parallel_evm_stats");
+      setParallelEVMStats(stats);
+      setParallelEVMEnabled(stats?.enabled || false);
+    } catch (e: any) {
+      // Ignore errors, stats might not be available
+    }
+  }
+
+  async function createWallet() {
+    if (!walletOwner) {
+      setError("Enter owner address");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const config: any = {};
+      if (walletType === "multisig" || walletType === "combined") {
+        config.multisig = {
+          signers: multisigSigners,
+          threshold: multisigThreshold,
+        };
+      }
+      if (walletType === "social" || walletType === "combined") {
+        config.recovery = {
+          guardians: guardians,
+          threshold: recoveryThreshold,
+          security_delay_seconds: 86400 * 2, // 2 days
+        };
+      }
+      if (walletType === "spending" || walletType === "combined") {
+        const limitBigInt = BigInt(Math.floor(parseFloat(spendingLimit || "0") * 1e18));
+        config.spending_limits = {
+          daily_limit: limitBigInt.toString(),
+          reset_period_seconds: 86400, // 24 hours
+        };
+      }
+
+      await invoke<any>("create_wallet", {
+        walletType: walletType,
+        owner: walletOwner,
+        config: config,
+      });
+      
+      setError(null);
+      await loadWallets();
+    } catch (e: any) {
+      setError(e?.toString?.() ?? "Failed to create wallet");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadWallets() {
+    if (!walletOwner) {
+      setWallets([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      const walletList = await invoke<any>("get_owner_wallets", { owner: walletOwner });
+      setWallets(Array.isArray(walletList) ? walletList : []);
+    } catch (e: any) {
+      setWallets([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function viewWalletDetails(address: string) {
+    setLoading(true);
+    setError(null);
+    try {
+      const wallet = await invoke<any>("get_wallet", { address: address });
+      alert(`Wallet Details:\n\nType: ${wallet.wallet_type}\nAddress: ${wallet.address}\nOwner: ${wallet.owner}\nNonce: ${wallet.nonce || 0}`);
+    } catch (e: any) {
+      setError(e?.toString?.() ?? "Failed to load wallet details");
     } finally {
       setLoading(false);
     }
@@ -1506,18 +1636,114 @@ function App() {
                   value={sendFee}
                   onChange={(e) => setSendFee(e.target.value)}
                   placeholder="0.001"
+                  disabled={isGasless}
                   style={{
                     width: "100%",
                     padding: "0.75rem",
                     borderRadius: 8,
                     border: "1px solid rgba(139, 92, 246, 0.3)",
-                    background: "rgba(2, 6, 23, 0.6)",
-                    color: "#e5e7eb",
+                    background: isGasless ? "rgba(2, 6, 23, 0.3)" : "rgba(2, 6, 23, 0.6)",
+                    color: isGasless ? "#64748b" : "#e5e7eb",
                     fontSize: "0.95rem",
                     transition: "all 0.3s ease",
+                    opacity: isGasless ? 0.5 : 1,
                   }}
                 />
               </div>
+
+              {/* Time-Locked Transaction Options */}
+              <div style={{ marginBottom: "1.25rem", padding: "1rem", background: "rgba(6, 182, 212, 0.1)", border: "1px solid rgba(6, 182, 212, 0.3)", borderRadius: 10 }}>
+                <label style={{ display: "flex", alignItems: "center", cursor: "pointer", color: "#94a3b8", fontWeight: "500" }}>
+                  <input
+                    type="checkbox"
+                    checked={isTimeLocked}
+                    onChange={(e) => setIsTimeLocked(e.target.checked)}
+                    style={{ marginRight: "0.5rem", width: "18px", height: "18px", cursor: "pointer" }}
+                  />
+                  <span>⏰ Time-Locked Transaction</span>
+                </label>
+                {isTimeLocked && (
+                  <div style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                    <div>
+                      <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontSize: "0.9rem" }}>
+                        Execute at Block Number (optional)
+                      </label>
+                      <input
+                        type="number"
+                        value={executeAtBlock}
+                        onChange={(e) => setExecuteAtBlock(e.target.value)}
+                        placeholder="e.g., 1000"
+                        style={{
+                          width: "100%",
+                          padding: "0.65rem",
+                          borderRadius: 8,
+                          border: "1px solid rgba(6, 182, 212, 0.3)",
+                          background: "rgba(2, 6, 23, 0.6)",
+                          color: "#e5e7eb",
+                          fontSize: "0.9rem",
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontSize: "0.9rem" }}>
+                        OR Execute at Timestamp (Unix timestamp, optional)
+                      </label>
+                      <input
+                        type="number"
+                        value={executeAtTimestamp}
+                        onChange={(e) => setExecuteAtTimestamp(e.target.value)}
+                        placeholder="e.g., 1704067200"
+                        style={{
+                          width: "100%",
+                          padding: "0.65rem",
+                          borderRadius: 8,
+                          border: "1px solid rgba(6, 182, 212, 0.3)",
+                          background: "rgba(2, 6, 23, 0.6)",
+                          color: "#e5e7eb",
+                          fontSize: "0.9rem",
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Gasless Transaction Options */}
+              <div style={{ marginBottom: "1.25rem", padding: "1rem", background: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.3)", borderRadius: 10 }}>
+                <label style={{ display: "flex", alignItems: "center", cursor: "pointer", color: "#94a3b8", fontWeight: "500" }}>
+                  <input
+                    type="checkbox"
+                    checked={isGasless}
+                    onChange={(e) => setIsGasless(e.target.checked)}
+                    style={{ marginRight: "0.5rem", width: "18px", height: "18px", cursor: "pointer" }}
+                  />
+                  <span>🎁 Gasless Transaction (Sponsored)</span>
+                </label>
+                {isGasless && (
+                  <div style={{ marginTop: "1rem" }}>
+                    <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontSize: "0.9rem" }}>
+                      Sponsor Address (who pays the fee)
+                    </label>
+                    <input
+                      type="text"
+                      value={sponsorAddress}
+                      onChange={(e) => setSponsorAddress(e.target.value)}
+                      placeholder="0x..."
+                      style={{
+                        width: "100%",
+                        padding: "0.65rem",
+                        borderRadius: 8,
+                        border: "1px solid rgba(16, 185, 129, 0.3)",
+                        background: "rgba(2, 6, 23, 0.6)",
+                        color: "#e5e7eb",
+                        fontSize: "0.9rem",
+                        fontFamily: "'JetBrains Mono', monospace",
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+
               <button
                 onClick={sendTx}
                 disabled={loading}
@@ -2410,7 +2636,381 @@ function App() {
               </div>
             )}
           </section>
+
+          {/* Parallel EVM Section */}
+          <section
+            style={{
+              marginTop: "1.5rem",
+              padding: "1.5rem",
+              borderRadius: 16,
+              background: "rgba(30, 41, 59, 0.7)",
+              backdropFilter: "blur(12px)",
+              border: "1px solid rgba(16, 185, 129, 0.2)",
+              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+            }}
+          >
+            <h2 style={{ fontSize: "1.4rem", marginBottom: "1rem", fontWeight: "600", color: "#f8fafc" }}>
+              ⚡ Parallel EVM
+            </h2>
+            <div style={{ marginBottom: "1.5rem" }}>
+              <label style={{ display: "flex", alignItems: "center", cursor: "pointer", color: "#94a3b8", fontWeight: "500", marginBottom: "1rem" }}>
+                <input
+                  type="checkbox"
+                  checked={parallelEVMEnabled}
+                  onChange={async (e) => {
+                    setParallelEVMEnabled(e.target.checked);
+                    try {
+                      await invoke("enable_parallel_evm", { enabled: e.target.checked });
+                      await loadParallelEVMStats();
+                    } catch (err: any) {
+                      setError(err?.toString?.() ?? "Failed to update Parallel EVM");
+                    }
+                  }}
+                  style={{ marginRight: "0.5rem", width: "18px", height: "18px", cursor: "pointer" }}
+                />
+                <span>Enable Parallel EVM Execution</span>
+              </label>
+              <button
+                onClick={loadParallelEVMStats}
+                disabled={loading}
+                style={{
+                  padding: "0.65rem 1.5rem",
+                  borderRadius: 8,
+                  border: "none",
+                  background: loading ? "rgba(16, 185, 129, 0.5)" : "linear-gradient(135deg, #10b981, #059669)",
+                  color: "white",
+                  cursor: loading ? "not-allowed" : "pointer",
+                  fontWeight: "600",
+                  fontSize: "0.95rem",
+                  boxShadow: loading ? "none" : "0 4px 12px rgba(16, 185, 129, 0.3)",
+                  opacity: loading ? 0.6 : 1,
+                }}
+              >
+                {loading ? "⏳ Loading..." : "🔄 Refresh Stats"}
+              </button>
+            </div>
+            {parallelEVMStats && (
+              <div style={{
+                padding: "1.25rem",
+                background: "rgba(16, 185, 129, 0.1)",
+                border: "1px solid rgba(16, 185, 129, 0.3)",
+                borderRadius: 12,
+              }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
+                  <div>
+                    <div style={{ color: "#94a3b8", fontSize: "0.85rem", marginBottom: "0.25rem" }}>Status</div>
+                    <div style={{ color: parallelEVMStats.enabled ? "#10b981" : "#ef4444", fontSize: "1.1rem", fontWeight: "600" }}>
+                      {parallelEVMStats.enabled ? "✅ Enabled" : "❌ Disabled"}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ color: "#94a3b8", fontSize: "0.85rem", marginBottom: "0.25rem" }}>Max Parallel</div>
+                    <div style={{ color: "#f8fafc", fontSize: "1.1rem", fontWeight: "600" }}>
+                      {parallelEVMStats.maxParallel || 100}
+                    </div>
+                  </div>
+                  {parallelEVMStats.stats && (
+                    <>
+                      <div>
+                        <div style={{ color: "#94a3b8", fontSize: "0.85rem", marginBottom: "0.25rem" }}>Avg Speedup</div>
+                        <div style={{ color: "#10b981", fontSize: "1.1rem", fontWeight: "600" }}>
+                          {parallelEVMStats.stats.avgSpeedup?.toFixed(2) || "N/A"}x
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ color: "#94a3b8", fontSize: "0.85rem", marginBottom: "0.25rem" }}>Parallel Rate</div>
+                        <div style={{ color: "#06b6d4", fontSize: "1.1rem", fontWeight: "600" }}>
+                          {((parallelEVMStats.stats.parallelRate || 0) * 100).toFixed(1)}%
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
         </>
+      )}
+
+      {/* Account Abstraction Tab */}
+      {activeTab === "account-abstraction" && (
+        <section
+          style={{
+            padding: "1.5rem",
+            borderRadius: 16,
+            background: "rgba(30, 41, 59, 0.7)",
+            backdropFilter: "blur(12px)",
+            border: "1px solid rgba(139, 92, 246, 0.2)",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+          }}
+        >
+          <h2 style={{ fontSize: "1.4rem", marginBottom: "1.5rem", fontWeight: "600", color: "#f8fafc" }}>
+            🔐 Account Abstraction
+          </h2>
+
+          {/* Wallet Creation */}
+          <div style={{ marginBottom: "2rem", padding: "1.5rem", background: "rgba(139, 92, 246, 0.1)", border: "1px solid rgba(139, 92, 246, 0.3)", borderRadius: 12 }}>
+            <h3 style={{ fontSize: "1.2rem", marginBottom: "1rem", fontWeight: "600", color: "#f8fafc" }}>
+              Create Smart Contract Wallet
+            </h3>
+            <div style={{ marginBottom: "1rem" }}>
+              <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontWeight: "500" }}>
+                Wallet Type
+              </label>
+              <select
+                value={walletType}
+                onChange={(e) => setWalletType(e.target.value as any)}
+                style={{
+                  width: "100%",
+                  padding: "0.75rem",
+                  borderRadius: 8,
+                  border: "1px solid rgba(139, 92, 246, 0.3)",
+                  background: "rgba(2, 6, 23, 0.6)",
+                  color: "#e5e7eb",
+                  fontSize: "0.95rem",
+                }}
+              >
+                <option value="basic">Basic Wallet</option>
+                <option value="multisig">Multi-Signature Wallet</option>
+                <option value="social">Social Recovery Wallet</option>
+                <option value="spending">Spending Limit Wallet</option>
+                <option value="combined">Combined (Multi-Sig + Recovery + Limits)</option>
+              </select>
+            </div>
+            <div style={{ marginBottom: "1rem" }}>
+              <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontWeight: "500" }}>
+                Owner Address
+              </label>
+              <input
+                type="text"
+                value={walletOwner}
+                onChange={(e) => setWalletOwner(e.target.value)}
+                placeholder="0x..."
+                style={{
+                  width: "100%",
+                  padding: "0.75rem",
+                  borderRadius: 8,
+                  border: "1px solid rgba(139, 92, 246, 0.3)",
+                  background: "rgba(2, 6, 23, 0.6)",
+                  color: "#e5e7eb",
+                  fontSize: "0.95rem",
+                  fontFamily: "'JetBrains Mono', monospace",
+                }}
+              />
+            </div>
+            {(walletType === "multisig" || walletType === "combined") && (
+              <div style={{ marginBottom: "1rem" }}>
+                <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontWeight: "500" }}>
+                  Signers (comma-separated addresses)
+                </label>
+                <input
+                  type="text"
+                  value={multisigSigners.join(", ")}
+                  onChange={(e) => setMultisigSigners(e.target.value.split(",").map(s => s.trim()).filter(s => s))}
+                  placeholder="0x..., 0x..., 0x..."
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    borderRadius: 8,
+                    border: "1px solid rgba(139, 92, 246, 0.3)",
+                    background: "rgba(2, 6, 23, 0.6)",
+                    color: "#e5e7eb",
+                    fontSize: "0.95rem",
+                    fontFamily: "'JetBrains Mono', monospace",
+                  }}
+                />
+                <div style={{ marginTop: "0.5rem" }}>
+                  <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontSize: "0.9rem" }}>
+                    Threshold (n-of-m)
+                  </label>
+                  <input
+                    type="number"
+                    value={multisigThreshold}
+                    onChange={(e) => setMultisigThreshold(parseInt(e.target.value) || 2)}
+                    min="1"
+                    max={multisigSigners.length || 1}
+                    style={{
+                      width: "100%",
+                      padding: "0.65rem",
+                      borderRadius: 8,
+                      border: "1px solid rgba(139, 92, 246, 0.3)",
+                      background: "rgba(2, 6, 23, 0.6)",
+                      color: "#e5e7eb",
+                      fontSize: "0.9rem",
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+            {(walletType === "social" || walletType === "combined") && (
+              <div style={{ marginBottom: "1rem" }}>
+                <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontWeight: "500" }}>
+                  Guardians (comma-separated addresses)
+                </label>
+                <input
+                  type="text"
+                  value={guardians.join(", ")}
+                  onChange={(e) => setGuardians(e.target.value.split(",").map(s => s.trim()).filter(s => s))}
+                  placeholder="0x..., 0x..., 0x..."
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    borderRadius: 8,
+                    border: "1px solid rgba(139, 92, 246, 0.3)",
+                    background: "rgba(2, 6, 23, 0.6)",
+                    color: "#e5e7eb",
+                    fontSize: "0.95rem",
+                    fontFamily: "'JetBrains Mono', monospace",
+                  }}
+                />
+                <div style={{ marginTop: "0.5rem" }}>
+                  <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontSize: "0.9rem" }}>
+                    Recovery Threshold
+                  </label>
+                  <input
+                    type="number"
+                    value={recoveryThreshold}
+                    onChange={(e) => setRecoveryThreshold(parseInt(e.target.value) || 2)}
+                    min="1"
+                    max={guardians.length || 1}
+                    style={{
+                      width: "100%",
+                      padding: "0.65rem",
+                      borderRadius: 8,
+                      border: "1px solid rgba(139, 92, 246, 0.3)",
+                      background: "rgba(2, 6, 23, 0.6)",
+                      color: "#e5e7eb",
+                      fontSize: "0.9rem",
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+            {(walletType === "spending" || walletType === "combined") && (
+              <div style={{ marginBottom: "1rem" }}>
+                <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontWeight: "500" }}>
+                  Spending Limit (MSHW)
+                </label>
+                <input
+                  type="text"
+                  value={spendingLimit}
+                  onChange={(e) => setSpendingLimit(e.target.value)}
+                  placeholder="1000"
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    borderRadius: 8,
+                    border: "1px solid rgba(139, 92, 246, 0.3)",
+                    background: "rgba(2, 6, 23, 0.6)",
+                    color: "#e5e7eb",
+                    fontSize: "0.95rem",
+                  }}
+                />
+              </div>
+            )}
+            <button
+              onClick={createWallet}
+              disabled={loading || !walletOwner}
+              style={{
+                padding: "0.75rem 2rem",
+                borderRadius: 8,
+                border: "none",
+                background: (!walletOwner || loading) ? "rgba(139, 92, 246, 0.5)" : "linear-gradient(135deg, #8b5cf6, #7c3aed)",
+                color: "white",
+                cursor: (!walletOwner || loading) ? "not-allowed" : "pointer",
+                fontWeight: "600",
+                fontSize: "1rem",
+                boxShadow: (!walletOwner || loading) ? "none" : "0 4px 12px rgba(139, 92, 246, 0.4)",
+                transition: "all 0.3s ease",
+                opacity: (!walletOwner || loading) ? 0.6 : 1,
+                width: "100%",
+              }}
+            >
+              {loading ? "⏳ Creating..." : "✨ Create Wallet"}
+            </button>
+          </div>
+
+          {/* Wallet List */}
+          <div style={{ marginBottom: "2rem" }}>
+            <h3 style={{ fontSize: "1.2rem", marginBottom: "1rem", fontWeight: "600", color: "#f8fafc" }}>
+              My Smart Contract Wallets
+            </h3>
+            <button
+              onClick={loadWallets}
+              disabled={loading}
+              style={{
+                padding: "0.65rem 1.5rem",
+                borderRadius: 8,
+                border: "none",
+                background: loading ? "rgba(139, 92, 246, 0.5)" : "linear-gradient(135deg, #8b5cf6, #7c3aed)",
+                color: "white",
+                cursor: loading ? "not-allowed" : "pointer",
+                fontWeight: "600",
+                fontSize: "0.95rem",
+                marginBottom: "1rem",
+                opacity: loading ? 0.6 : 1,
+              }}
+            >
+              {loading ? "⏳ Loading..." : "🔄 Refresh Wallets"}
+            </button>
+            {wallets.length === 0 ? (
+              <div style={{ padding: "1.5rem", textAlign: "center", color: "#94a3b8", fontStyle: "italic" }}>
+                No wallets found. Create your first smart contract wallet!
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: "0.75rem" }}>
+                {wallets.map((wallet: any) => (
+                  <div
+                    key={wallet.address}
+                    style={{
+                      padding: "1rem",
+                      background: selectedWallet === wallet.address ? "rgba(139, 92, 246, 0.15)" : "rgba(139, 92, 246, 0.05)",
+                      border: selectedWallet === wallet.address ? "2px solid rgba(139, 92, 246, 0.4)" : "1px solid rgba(139, 92, 246, 0.2)",
+                      borderRadius: 10,
+                      cursor: "pointer",
+                      transition: "all 0.3s ease",
+                    }}
+                    onClick={() => setSelectedWallet(wallet.address)}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: "0.9rem", color: "#94a3b8", marginBottom: "0.25rem" }}>
+                          {wallet.wallet_type || "Unknown"}
+                        </div>
+                        <div style={{ 
+                          fontSize: "0.85rem", 
+                          color: "#8b5cf6",
+                          fontFamily: "'JetBrains Mono', monospace",
+                          wordBreak: "break-all"
+                        }}>
+                          {wallet.address}
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          viewWalletDetails(wallet.address);
+                        }}
+                        style={{
+                          padding: "0.5rem 1rem",
+                          borderRadius: 8,
+                          border: "none",
+                          background: "linear-gradient(135deg, #06b6d4, #0891b2)",
+                          color: "white",
+                          cursor: "pointer",
+                          fontWeight: "600",
+                          fontSize: "0.85rem",
+                        }}
+                      >
+                        View
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
       )}
       </div>
     </div>
