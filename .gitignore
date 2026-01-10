@@ -112,6 +112,12 @@ RENAME_*.md
 BRANDING*.md
 TWITTER*.md
 fairness.rs
+PROJECT_DESCRIPTION*.md
+PROJECT_INVENTORY*.md
+PROJECT_REVIEW*.md
+GITHUB_PUSH*.md
+PUBLIC_REPO*.md
+update_whitepaper*.ps1
 
 # Development scripts (except essential deployment scripts)
 *.ps1
