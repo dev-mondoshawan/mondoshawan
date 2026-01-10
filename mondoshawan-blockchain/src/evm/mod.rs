@@ -228,3 +228,12 @@ pub struct ExecutionResult {
 
 // Parallel EVM module
 pub mod parallel;
+
+// State snapshot module for parallel execution
+pub mod state_snapshot;
+
+// Benchmarking module
+pub mod benchmark;
+
+// Integration helpers
+pub mod integration;
