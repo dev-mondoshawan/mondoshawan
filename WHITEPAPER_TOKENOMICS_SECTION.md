@@ -47,25 +47,27 @@ Block Creation → Token Generation → Reward Distribution
 
 ---
 
-#### 7.2.2 Community Presale Allocation (Pre-mine)
+#### 7.2.2 Community Presale Matching (Pre-Launch)
 
-To fund initial development, security audits, and exchange listings, a **3% community presale** is conducted before mainnet launch.
+To fund initial development, security audits, and exchange listings, a **community presale** is conducted on Pump.fun before mainnet launch. Presale tokens are matched 1:1 with native MSHW, capped at 1 billion MSHW (10% of max supply).
 
 **Allocation Details**:
-- **Total Allocation**: 300,000,000 MSHW (3% of 10 billion max supply)
+- **Matching Cap**: Up to 1,000,000,000 MSHW (10% of 10 billion max supply)
 - **Purpose**: Community development funding
 - **Distribution**: Sold to community members (not team, not VCs)
-- **Price**: $0.001 per MSHW (fixed)
-- **Target Raise**: $300,000 USD
-- **Limits**: 1,000 - 10,000,000 MSHW per address (prevents whale dominance)
+- **Price**: Determined by Pump.fun bonding curve (early buyers get better prices)
+- **Target Raise**: $300,000+ USD
+- **Matching**: 1:1 migration to native MSHW (up to 1B cap)
+- **If Over Cap**: Proportional matching if presale creates more than 1B tokens
 
-**Pre-mine Justification**:
-- Smallest pre-mine in the industry (vs competitors' 20-65%)
+**Presale Justification**:
+- Smallest pre-launch allocation in the industry (vs competitors' 20-65%)
 - Community-funded (not team-funded)
 - Transparent allocation and spending
 - Necessary for initial development and security audits
+- Flexible matching works with Pump.fun's bonding curve model
 
-**Fair Launch Impact**: 3% pre-mine means 97% fair launch (still fairest in industry)
+**Fair Launch Impact**: Up to 10% presale match means 90% fair launch (still fairest in industry)
 
 ---
 
@@ -93,10 +95,13 @@ To fund initial development, security audits, and exchange listings, a **3% comm
 #### 7.3.2 Distribution Breakdown
 
 **Initial Distribution (Pre-Launch)**:
-- **Community Presale**: 300,000,000 MSHW (3%)
+- **Community Presale Match**: Up to 1,000,000,000 MSHW (10% cap)
   - Purpose: Development funding
+  - Source: Pump.fun presale tokens (matched 1:1)
+  - Matching: 1:1 up to 1B cap (proportional if over cap)
   - Allocation: Community members only
   - Transparency: Public wallet, spending reports
+  - **Fair Launch**: 90% (9B from mining + dev fund, 1B from presale match)
 
 **Ongoing Distribution (Post-Launch)**:
 - **Mining Rewards**: 8,700,000,000 MSHW (87%)
@@ -106,7 +111,7 @@ To fund initial development, security audits, and exchange listings, a **3% comm
   - Total: ~2,128.68M MSHW/year (Year 1)
   - Fair Launch: All tokens generated through mining
 
-- **Development Fund**: 1,000,000,000 MSHW (10%)
+- **Development Fund**: 300,000,000 MSHW (3%)
   - Source: 10% of all mining rewards
   - Generation: ~259,200 MSHW/day (Year 1)
   - Annual: ~94.608M MSHW/year (Year 1)
@@ -114,10 +119,11 @@ To fund initial development, security audits, and exchange listings, a **3% comm
   - Use: Audits, listings, grants, infrastructure
 
 **Total Distribution**:
-- Presale: 300M MSHW (3%) - Pre-mined
+- Presale Match: Up to 1B MSHW (10% cap) - Matched from Pump.fun
 - Mining: 8.7B MSHW (87%) - Fair launch
-- Dev Fund: 1B MSHW (10%) - From mining rewards
+- Dev Fund: 300M MSHW (3%) - From mining rewards
 - **Total**: 10B MSHW (100%)
+- **Fair Launch**: 90% (9B from mining + dev fund, 1B from presale match)
 
 ---
 
@@ -125,7 +131,7 @@ To fund initial development, security audits, and exchange listings, a **3% comm
 
 #### 7.4.1 Fair Launch Principles
 
-The Mondoshawan Protocol implements a **97% fair launch model**, the fairest in the industry:
+The Mondoshawan Protocol implements a **90% fair launch model**, the fairest in the industry:
 
 **Fair Launch Components**:
 - ✅ **97% Mining-Based**: 8.7 billion MSHW generated through mining
@@ -136,7 +142,7 @@ The Mondoshawan Protocol implements a **97% fair launch model**, the fairest in 
 - ✅ **Transparent**: All allocations public and verifiable
 
 **Pre-mine Components** (3%):
-- ⚠️ **3% Community Presale**: 300M MSHW for development funding
+- ⚠️ **Up to 10% Community Presale Match**: Up to 1B MSHW matched from Pump.fun presale
 - ✅ **Community-Funded**: Sold to community, not team
 - ✅ **Transparent**: Public allocation and spending
 - ✅ **Smallest in Industry**: vs competitors' 20-65% pre-mine
