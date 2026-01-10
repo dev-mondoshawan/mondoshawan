@@ -395,8 +395,8 @@ The Mondoshawan Block Explorer provides comprehensive blockchain viewing with:
 #### **Updates Needed**:
 
 **RPC Methods Count**:
-- **Old**: 156+ RPC methods
-- **New**: **170+ RPC methods** (added 14+ methods for new features)
+- **Current**: **129 RPC methods** (Website is already correct! ✅)
+- **Note**: The website correctly states 129 methods. No update needed for this stat.
 
 **Feature Count**:
 - **Old**: 8-10 major features
@@ -603,7 +603,7 @@ Oracle nodes can stake MSHW tokens to participate in the oracle network:
 4. ✅ Stop-Loss Orders - **HIGH PRIORITY**
 
 ### **Stats to Update**:
-- RPC Methods: **156+** → **170+**
+- RPC Methods: **129** → **129** (Website is already correct! ✅)
 - Major Features: **9** → **13+**
 - Implementation: **~60%** → **~75%**
 
