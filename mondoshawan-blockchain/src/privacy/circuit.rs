@@ -4,7 +4,6 @@
 
 use ark_bn254::Fr;
 use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystem, SynthesisError, Variable};
-use serde::{Deserialize, Serialize};
 
 // Helper macro for linear combinations
 macro_rules! lc {
@@ -35,7 +34,7 @@ pub trait PrivacyCircuit: ConstraintSynthesizer<Fr> {
 /// 2. New sender balance = old balance - amount
 /// 3. Nullifier is valid (prevents double-spending)
 /// 4. Commitment is valid (receiver can decrypt)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct PrivateTransferCircuit {
     /// Sender's old balance (private witness)
     pub old_balance: Option<u128>,
@@ -55,26 +54,22 @@ impl ConstraintSynthesizer<Fr> for PrivateTransferCircuit {
         cs: &mut ConstraintSystem<Fr>,
     ) -> Result<(), SynthesisError> {
         // Allocate witness variables using the correct API
-        // Note: arkworks 0.4 uses different method names
-        // For now, we'll use a simplified approach that works with the API
+        // arkworks 0.4 uses new_witness_variable and new_input_variable
         
         // Allocate old_balance as witness
-        let old_balance_var = cs.alloc(
-            || "old_balance",
+        let old_balance_var = cs.new_witness_variable(
             || self.old_balance.ok_or(SynthesisError::AssignmentMissing)
                 .map(|b| Fr::from(b))
         )?;
 
         // Allocate amount as witness
-        let amount_var = cs.alloc(
-            || "amount",
+        let amount_var = cs.new_witness_variable(
             || self.amount.ok_or(SynthesisError::AssignmentMissing)
                 .map(|a| Fr::from(a))
         )?;
 
         // Allocate new_balance as public input
-        let new_balance_var = cs.alloc_input(
-            || "new_balance",
+        let new_balance_var = cs.new_input_variable(
             || self.new_balance.ok_or(SynthesisError::AssignmentMissing)
                 .map(|b| Fr::from(b))
         )?;
@@ -95,15 +90,13 @@ impl ConstraintSynthesizer<Fr> for PrivateTransferCircuit {
         // Constraint 3: Nullifier is valid (simplified)
         // In production, this would verify nullifier = hash(receiver_secret, note_index)
         // For now, just allocate nullifier as public input
-        let _nullifier_var = cs.alloc_input(
-            || "nullifier",
+        let _nullifier_var = cs.new_input_variable(
             || Ok(self.nullifier)
         )?;
         
         // Constraint 4: Commitment is valid (simplified)
         // In production, this would verify commitment = PedersenCommit(amount, blinding)
-        let _commitment_var = cs.alloc_input(
-            || "commitment",
+        let _commitment_var = cs.new_input_variable(
             || self.commitment.ok_or(SynthesisError::AssignmentMissing)
         )?;
         

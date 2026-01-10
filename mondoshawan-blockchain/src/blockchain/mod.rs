@@ -51,6 +51,7 @@ pub struct Blockchain {
     oracle_registry: Option<Arc<tokio::sync::RwLock<crate::oracles::OracleRegistry>>>,
     price_feed_manager: Option<Arc<tokio::sync::RwLock<crate::oracles::PriceFeedManager>>>,
     vrf_manager: Option<Arc<tokio::sync::RwLock<crate::oracles::VrfManager>>>,
+    oracle_staking: Option<Arc<tokio::sync::RwLock<crate::oracles::OracleStaking>>>,
     
     // Recurring Transactions
     recurring_manager: Option<Arc<tokio::sync::RwLock<crate::recurring::RecurringTransactionManager>>>,
@@ -796,6 +797,31 @@ impl Blockchain {
                     }
                 }
             }
+        }
+        
+        Ok(())
+    }
+
+    /// Process privacy transaction
+    fn process_privacy_transaction(
+        &mut self,
+        _tx: &Transaction,
+        _privacy_tx: &crate::privacy::PrivacyTransaction,
+    ) -> crate::error::BlockchainResult<()> {
+        // Privacy transactions hide sender, receiver, and amount
+        // We only process the nullifier (mark as spent) and commitment (add to tree)
+        
+        if let Some(ref privacy_manager) = self.privacy_manager {
+            // Extract nullifier from public inputs
+            // In production, would properly parse public inputs
+            // For now, simplified processing
+            
+            // TODO: Parse nullifier from public inputs
+            // TODO: Add nullifier to nullifier set (mark as spent)
+            // TODO: Add commitment to Merkle tree
+            
+            // Privacy transactions don't update balances directly
+            // Balances are managed through commitments and nullifiers
         }
         
         Ok(())
