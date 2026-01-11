@@ -44,15 +44,12 @@ ENV/
 # Logs
 *.log
 logs/
+*.log.*
 
 # Database
 *.db
 *.sqlite
 *.sqlite3
-
-# OS
-Thumbs.db
-.DS_Store
 
 # Project specific
 mondoshawan-blockchain/target/
@@ -65,9 +62,6 @@ config.local.*
 keystore/
 wallets/
 data/
-*.db
-*.sqlite
-*.sqlite3
 
 # Build artifacts
 **/target/
@@ -75,23 +69,9 @@ data/
 **/dist/
 **/build/
 
-# IDE and editor files
-.vscode/
-.vs/
-.idea/
-*.swp
-*.swo
-*~
-
 # OS files
-.DS_Store
 Thumbs.db
 desktop.ini
-
-# Logs
-*.log
-logs/
-*.log.*
 
 # Temporary files
 *.tmp
@@ -107,7 +87,6 @@ logs/
 PYRAX_*.md
 *PYRAX*.md
 *_POSITIONING*.md
-*_COMPARISON*.md
 RENAME_*.md
 BRANDING*.md
 TWITTER*.md
@@ -118,6 +97,7 @@ PROJECT_REVIEW*.md
 GITHUB_PUSH*.md
 PUBLIC_REPO*.md
 update_whitepaper*.ps1
+
 # Internal strategy documents
 PRESALE_LAUNCH_GUIDE.md
 PRESALE_MATCHING_STRATEGY.md
@@ -131,6 +111,147 @@ PROTECTION_SUMMARY.md
 *PUMP*.md
 PUMP_*.md
 *PUMP_FUN*.md
+
+# Internal status/progress/implementation documents
+# Keep: BUILD_INSTRUCTIONS.md, QUICK_START.md, NODE_QUICK_START.md, DEVELOPER_GUIDE.md, USER_GUIDES/*.md
+*STATUS*.md
+!STATUS.md
+*NEXT_STEPS*.md
+*PROGRESS*.md
+*PHASE*.md
+*COMPLETE*.md
+*SUMMARY*.md
+*FIX*.md
+*ROADMAP*.md
+*PLAN*.md
+*TESTING*.md
+*TEST_*.md
+*RESULTS*.md
+*IMPLEMENTATION*.md
+*UPDATE*.md
+*CHECKLIST*.md
+*CLARIFICATION*.md
+*EXPLAIN*.md
+*ISSUE*.md
+*SOLUTION*.md
+*TROUBLESHOOTING*.md
+*SETUP_*.md
+*INSTALLATION*.md
+*DEPLOYMENT*.md
+*READINESS*.md
+*MONITORING*.md
+*TOOLING*.md
+*INTEGRATION*.md
+*REPORT*.md
+*ANALYSIS*.md
+*COMPARISON*.md
+*PRIORITIZED*.md
+*FEATURES*.md
+*WINS*.md
+*CLEANUP*.md
+*VERIFICATION*.md
+*TODO*.md
+*ACTION*.md
+*BRIEF*.md
+*DESIGN*.md
+*DEMO*.md
+*NAVIGATION*.md
+*HELP*.md
+*MOVE*.md
+*WSL*.md
+*BUILD_MSVCRT*.md
+*COPY*.md
+*FIND*.md
+*USE_*.md
+*GENERATION*.md
+*TRUSTED*.md
+*EXPLAINED*.md
+*REVISED*.md
+*AND_*.md
+*BYPASS*.md
+*QUEUE*.md
+*DOMINANCE*.md
+*LONGEVITY*.md
+*CONCERNS*.md
+*SOLUTIONS*.md
+*STARTUP*.md
+*CHANNEL*.md
+*DEADLOCK*.md
+*BUGFIXES*.md
+*NONCE*.md
+*SHARD_POOL*.md
+*MSVC*.md
+*MSVCRT*.md
+*CL_EXE*.md
+*LINKER*.md
+*VISUAL_STUDIO*.md
+*CPP*.md
+*RUNTIME*.md
+*LOCATIONS*.md
+*UX*.md
+*FINALITY*.md
+*FUNDING*.md
+*OPTIONS*.md
+*FAIR_LAUNCH*.md
+*RPC_CONNECTION*.md
+*EXPLORER_*.md
+*FEATURE_*.md
+*ECONOMIC*.md
+*APP_*.md
+*DESKTOP_APP*.md
+*DIFFERENTIATING*.md
+*QUICKSTART*.md
+*CLOUD*.md
+*MULTI*.md
+*NODE_LONGEVITY*.md
+*DASHBOARDS*.md
+*GRAFANA_DASHBOARDS*.md
+*INTERFACE*.md
+*TRANSITION*.md
+*MINERS*.md
+*FAIRNESS*.md
+*MEV*.md
+*ADVANTAGES*.md
+*COMPETITIVE*.md
+*L1_COMPETITIVE*.md
+*CHARTER*.md
+*GOVERNANCE_CHARTER*.md
+*ORACLES*.md
+*RECURRING*.md
+*STOPLOSS*.md
+*ACCOUNT_ABSTRACTION_*.md
+!ACCOUNT_ABSTRACTION_USER_GUIDE.md
+*PARALLEL_EVM_*.md
+!PARALLEL_EVM_USER_GUIDE.md
+*PRIVACY_LAYER*.md
+*PRIVACY_PHASE*.md
+*PQC*.md
+*PQ_*.md
+*SIGNATURE*.md
+*VERKLE*.md
+*LIGHT*.md
+*CLIENT*.md
+*SNARK*.md
+*ZK*.md
+*STORAGE_INTEGRATION*.md
+*PROPAGATION*.md
+*BLOCK_PROPAGATION*.md
+*ACTIVATION*.md
+*SHARDING_ACTIVATION*.md
+*FORENSICS*.md
+*AUDIT*.md
+*POLICIES*.md
+*SEP*.md
+*HARDENING*.md
+!SECURITY_HARDENING_GUIDE.md
+*PRODUCTION*.md
+*REMAINING*.md
+*UPDATED*.md
+*METHODS*.md
+*COUNT*.md
+*TOKENOMICS_*.md
+*TOKEN_GENERATION*.md
+*WHITEPAPER_TOKENOMICS*.md
 
 # Development scripts (except essential deployment scripts)
 *.ps1
@@ -150,9 +271,6 @@ mondoshawan-website-legendary/
 mondoshawan-website-FINAL-v2/
 *WEBSITE*.md
 WEBSITE_*.md
-
-# Desktop application (separate project)
-# mondoshawan-desktop/  # Now included in public repo
 
 # Desktop app user data (user-specific, should not be committed)
 mondoshawan-desktop/src-tauri/accounts.json

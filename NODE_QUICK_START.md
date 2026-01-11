@@ -15,10 +15,18 @@ You now have a **fully functional blockchain node** with:
 ## 🚀 Running the Node
 
 ### Start the Node
-```powershell
-cd D:\Mondoshawan\Mondoshawan-blockchain
-$env:LIB = "D:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.50.35717\lib\x64;C:\Program Files (x86)\Windows Kits\10\Lib\10.0.26100.0\um\x64;$env:LIB"
-cargo run --bin node
+
+**Windows (Recommended)**:
+```cmd
+# Use Developer Command Prompt for VS 2022
+cd mondoshawan-blockchain
+cargo run --bin node --release
+```
+
+**Linux/macOS**:
+```bash
+cd mondoshawan-blockchain
+cargo run --bin node --release
 ```
 
 ### What You'll See
@@ -154,43 +162,34 @@ Each stream:
 
 ## 📝 Next Steps
 
-### To Add More Functionality:
-1. **Network Layer**: P2P block propagation
-2. **RPC API**: JSON-RPC for transactions
-3. **Storage Integration**: Persist to disk
-4. **GhostDAG**: Full consensus implementation
-5. **EVM**: Smart contract support
-
-### Current Status
-- ✅ Core blockchain working
-- ✅ Mining operational
-- ✅ Tokenomics implemented
-- ✅ Node runs successfully
-- ⚠️ Storage integration pending
-- ⚠️ Network layer pending
+- **[DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)** - Contributing to the project
+- **[JSON_RPC_API_GUIDE.md](JSON_RPC_API_GUIDE.md)** - API documentation
+- **[TOKENOMICS.md](TOKENOMICS.md)** - Token economics
+- **[Mondoshawan_WHITEPAPER.md](Mondoshawan_WHITEPAPER.md)** - Technical whitepaper
 
 ---
 
 ## 🐛 Troubleshooting
 
 ### Build Errors
-Make sure LIB environment variable is set:
-```powershell
-$env:LIB = "D:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.50.35717\lib\x64;C:\Program Files (x86)\Windows Kits\10\Lib\10.0.26100.0\um\x64;$env:LIB"
-```
+
+See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) for detailed troubleshooting.
 
 ### Node Won't Start
+
 - Check that genesis block is created
 - Verify all dependencies are installed
-- Check for port conflicts (future network feature)
+- Check for port conflicts (default ports: 8545, 8080)
+- Ensure Rust toolchain is installed: `rustc --version`
 
 ---
 
 ## 📚 Documentation
 
-- **TOKENOMICS_AND_MINING.md**: Detailed tokenomics explanation
-- **BLOCKCHAIN_STATUS.md**: Overall project status
-- **README.md**: Project overview
+- **[README.md](README.md)** - Project overview
+- **[QUICK_START.md](QUICK_START.md)** - Getting started guide
+- **[BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md)** - Build instructions
+- **[TOKENOMICS.md](TOKENOMICS.md)** - Token economics
 
 ---
 

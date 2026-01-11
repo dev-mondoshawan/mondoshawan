@@ -1,100 +1,105 @@
-# Mondoshawan Quick Start Guide
+# Quick Start Guide
 
-## ✅ Everything Should Be Installed Now
+Get up and running with Mondoshawan in minutes.
 
-### Quick Build Options
+## Prerequisites
 
-#### Option 1: Use the Build Script (Easiest)
-```powershell
-cd D:\Mondoshawan
-.\build.ps1
+- Rust 1.92.0+
+- Visual Studio Build Tools 2022 (Windows) or clang (Linux/macOS)
+- Python 3.12+ (optional, for POC)
+- Node.js v22.19.0+ (for frontend)
+
+## Installation
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/dev-mondoshawan/mondoshawan.git
+cd mondoshawan
 ```
 
-#### Option 2: Use Developer Command Prompt (Recommended)
-1. Open **"Developer Command Prompt for VS 2022"** from Start Menu
-2. Run:
-   ```powershell
-   cd D:\Mondoshawan\Mondoshawan-blockchain
-   cargo build
-   ```
+### 2. Build the Project
 
-#### Option 3: Manual Setup
-```powershell
-# Set Rust paths
-$env:CARGO_HOME = "D:\Rust\.cargo"
-$env:RUSTUP_HOME = "D:\Rust\.rustup"
-$env:PATH = "D:\Rust\.cargo\bin;$env:PATH"
-
-# Set Visual Studio paths
-$vsPath = "C:\Program Files\Microsoft Visual Studio\18\Community"
-$msvcVersion = "14.50.35717"
-$linkerDir = "$vsPath\VC\Tools\MSVC\$msvcVersion\bin\Hostx64\x64"
-$vcLibPath = "$vsPath\VC\Tools\MSVC\$msvcVersion\lib\x64"
-
-# Find Windows SDK
-$sdkPaths = @("C:\Program Files (x86)\Windows Kits\10", "C:\Program Files\Windows Kits\10")
-$sdkLib = $null
-foreach ($sdkBase in $sdkPaths) {
-    if (Test-Path "$sdkBase\Lib") {
-        $sdkVersions = Get-ChildItem "$sdkBase\Lib" -Directory | Where-Object { $_.Name -match "10\." } | Sort-Object Name -Descending
-        if ($sdkVersions) {
-            $sdkLib = "$($sdkVersions[0].FullName)\um\x64"
-            if (Test-Path $sdkLib) { break }
-        }
-    }
-}
-
-# Update environment
-$env:PATH = "$linkerDir;$env:PATH"
-if ($sdkLib) {
-    $env:LIB = "$vcLibPath;$sdkLib;$env:LIB"
-}
-
-# Build
-cd D:\Mondoshawan\Mondoshawan-blockchain
-cargo build
+**Windows (Recommended)**:
+```cmd
+# Use Developer Command Prompt for VS 2022
+cd mondoshawan-blockchain
+cargo build --release
 ```
 
-## 🧪 Testing
-
-### Test Rust
-```powershell
-cd D:\Mondoshawan\Mondoshawan-blockchain
-cargo test
+**Linux/macOS**:
+```bash
+cd mondoshawan-blockchain
+cargo build --release
 ```
 
-### Test Python POC
-```powershell
-cd D:\Mondoshawan\Mondoshawan_poc
-python -c "import asyncio; print('Python OK')"
+See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) for detailed build instructions.
+
+### 3. Run the Node
+
+```bash
+cd mondoshawan-blockchain
+cargo run --bin node --release
 ```
 
-## 🔧 Troubleshooting
+The node will:
+- Create a genesis block automatically
+- Start TriStream mining (3 parallel streams)
+- Process transactions
+- Display real-time statistics
 
-### If you get "link.exe not found"
-- Use Developer Command Prompt for VS 2022
-- Or run `.\build.ps1` script
+## Access Points
 
-### If you get "kernel32.lib not found"
-- Install Windows 10/11 SDK via Visual Studio Installer
-- Or use Developer Command Prompt (it sets this up automatically)
+Once running, you can access:
 
-### If build is slow
-- First build downloads and compiles dependencies (can take 10-20 minutes)
-- Subsequent builds are much faster
+- **Console Dashboard**: Real-time stats in terminal
+- **JSON-RPC API**: `http://localhost:8545`
+- **HTTP API**: `http://localhost:8080/api/stats`
+- **Web Explorer**: Open `mondoshawan-explorer-frontend/index.html` in a browser
 
-## 📝 What's Installed
+## What You'll See
 
-- ✅ Rust: D:\Rust\ (rustc 1.92.0)
-- ✅ Python: D:\Python\ (Python 3.12.0)
-- ✅ Node.js: v22.19.0
-- ✅ Visual Studio 18 Community with C++ tools
-- ✅ Windows SDK (should be installed)
+```
+╔═══════════════════════════════════════════════════════════╗
+║     Mondoshawan Blockchain Node - TriStream Mining       ║
+╚═══════════════════════════════════════════════════════════╝
 
-## 🚀 Next Steps
+🚀 Starting Mondoshawan Node...
+✅ Genesis block created
+⛏️  Starting TriStream mining...
 
-1. Build the project: `.\build.ps1` or use Developer Command Prompt
-2. Run tests: `cargo test`
-3. Explore the code: Check `Mondoshawan-blockchain/src/` for Rust code
-4. Run Python POC: `cd Mondoshawan_poc && python -m asyncio`
+✅ Stream A: Mined block #1 with 50 txs, reward: 50 tokens
+✅ Stream B: Mined block #2 with 25 txs, reward: 25 tokens
+✅ Stream C: Mined block #3 with 10 txs, fees: 0.01 tokens
 
+📊 Stats:
+   Blocks: 15
+   Transactions: 85
+   Miner Balance: 375 tokens
+```
+
+## Next Steps
+
+- **[NODE_QUICK_START.md](NODE_QUICK_START.md)** - Detailed node operation guide
+- **[DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)** - Contributing to the project
+- **[JSON_RPC_API_GUIDE.md](JSON_RPC_API_GUIDE.md)** - API documentation
+- **[USER_GUIDES/WALLET_GUIDE.md](USER_GUIDES/WALLET_GUIDE.md)** - Using wallets
+
+## Troubleshooting
+
+### Node Won't Start
+
+- Ensure all dependencies are installed (see [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md))
+- Check for port conflicts (default ports: 8545, 8080)
+- Verify Rust toolchain: `rustc --version`
+
+### Build Errors
+
+See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) for detailed troubleshooting.
+
+## Documentation
+
+- **[README.md](README.md)** - Project overview
+- **[Mondoshawan_WHITEPAPER.md](Mondoshawan_WHITEPAPER.md)** - Technical whitepaper
+- **[TOKENOMICS.md](TOKENOMICS.md)** - Token economics
+- **[SECURITY.md](SECURITY.md)** - Security policy

@@ -17,10 +17,11 @@
 - **Chain ID**: 0x4D534857 (testnet) / TBD (mainnet)
 
 ### Supply Model
-- **Type**: Inflationary (no hard cap)
+- **Type**: Deflationary (hard cap)
+- **Max Supply**: 10,000,000,000 MSHW (10 billion)
 - **Initial Supply**: 0 (fair launch, no pre-mine)
-- **Emission**: Mining rewards only
-- **Max Supply**: Unlimited (inflationary model)
+- **Emission**: Mining rewards only (until cap reached)
+- **Presale Match**: Up to 1,000,000,000 MSHW (10% cap)
 
 ---
 

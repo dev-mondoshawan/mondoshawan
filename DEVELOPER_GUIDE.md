@@ -8,25 +8,42 @@
 
 ### 1. Read These First (in order)
 1. **[README.md](README.md)** - Project overview
-2. **[PROJECT_STATUS.md](PROJECT_STATUS.md)** - Current implementation status
-3. **[NEXT_STEPS.md](NEXT_STEPS.md)** - What to work on next
+2. **[QUICK_START.md](QUICK_START.md)** - Getting started
+3. **[BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md)** - Build instructions
 4. **[NODE_QUICK_START.md](NODE_QUICK_START.md)** - How to run the node
 
 ### 2. Set Up Your Environment
 
-```powershell
+**Windows (Recommended - Use Developer Command Prompt)**:
+```cmd
+# Open "Developer Command Prompt for VS 2022" from Start Menu
+cd mondoshawan-blockchain
+cargo build
+cargo test
+cargo run --bin node
+```
+
+**Linux/macOS**:
+```bash
 # Navigate to project
-cd D:\Mondoshawan
-
-# Set Rust environment (if needed)
-$env:CARGO_HOME = "D:\Rust\.cargo"
-$env:RUSTUP_HOME = "D:\Rust\.rustup"
-
-# Set MSVC environment (if needed)
-$env:LIB = "D:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.50.35717\lib\x64;C:\Program Files (x86)\Windows Kits\10\Lib\10.0.26100.0\um\x64;$env:LIB"
+cd mondoshawan-blockchain
 
 # Build the project
-cd Mondoshawan-blockchain
+cargo build
+
+# Run tests
+cargo test
+
+# Run the node
+cargo run --bin node
+```
+
+**Windows (Manual Setup)**:
+```powershell
+# Navigate to project
+cd mondoshawan-blockchain
+
+# Build (cargo will use MSVC toolchain automatically if installed)
 cargo build
 
 # Run tests

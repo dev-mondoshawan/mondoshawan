@@ -45,27 +45,20 @@ Mondoshawan/
 
 ### Prerequisites
 
-- **Rust**: Installed on `D:\Rust\` (rustc 1.92.0+)
-- **Python**: Installed on `D:\Python\` (Python 3.12+)
+- **Rust**: 1.92.0 or later ([Install Rust](https://www.rust-lang.org/tools/install))
+- **Python**: 3.12+ (for POC components)
 - **Node.js**: v22.19.0+ (for frontend)
-- **Visual Studio Build Tools**: Required for Rust MSVC toolchain
+- **Visual Studio Build Tools 2022** (Windows) or **clang** (Linux/macOS)
 
 ### Setup
 
 1. **Install Rust** (if not already installed):
-   ```powershell
-   # Rust is installed at D:\Rust\
-   $env:CARGO_HOME = "D:\Rust\.cargo"
-   $env:RUSTUP_HOME = "D:\Rust\.rustup"
+   ```bash
+   # Follow instructions at https://www.rust-lang.org/tools/install
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
    ```
 
-2. **Install Python** (if not already installed):
-   ```powershell
-   # Python is installed at D:\Python\
-   $env:PATH = "D:\Python;D:\Python\Scripts;$env:PATH"
-   ```
-
-3. **Install Visual Studio Build Tools**:
+2. **Install Visual Studio Build Tools** (Windows only):
    - Download from: https://visualstudio.microsoft.com/downloads/
    - Install "Build Tools for Visual Studio 2022"
    - Select "C++ build tools" and "Windows SDK"
@@ -193,13 +186,19 @@ cargo test --test integration_test
 
 ### Environment Variables
 
-```powershell
-# Rust
-$env:CARGO_HOME = "D:\Rust\.cargo"
-$env:RUSTUP_HOME = "D:\Rust\.rustup"
+Rust and Python should be in your system PATH. If using custom installation locations, set:
 
-# Python
-$env:PATH = "D:\Python;D:\Python\Scripts;$env:PATH"
+**Windows (PowerShell)**:
+```powershell
+# Only if Rust is installed in a custom location
+$env:CARGO_HOME = "path\to\cargo"
+$env:RUSTUP_HOME = "path\to\rustup"
+```
+
+**Linux/macOS**:
+```bash
+# Rust is typically installed via rustup in ~/.cargo
+# Python is typically in system PATH
 ```
 
 ### Project Status
