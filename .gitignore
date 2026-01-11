@@ -120,10 +120,17 @@ PUBLIC_REPO*.md
 update_whitepaper*.ps1
 # Internal strategy documents
 PRESALE_LAUNCH_GUIDE.md
+PRESALE_MATCHING_STRATEGY.md
 LIQUIDITY_AND_EXCHANGE_STRATEGY.md
 OPEN_SOURCE_STRATEGY.md
+AI_NATIVE_L1_STRATEGY.md
 LEGAL_PROTECTION_CHECKLIST.md
 PROTECTION_SUMMARY.md
+
+# Pump.fun related (internal only)
+*PUMP*.md
+PUMP_*.md
+*PUMP_FUN*.md
 
 # Development scripts (except essential deployment scripts)
 *.ps1
